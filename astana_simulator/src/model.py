@@ -8,7 +8,7 @@ import math
 from numbers import Integral
 
 from src.data import (
-    BASE, BUDGET, HORIZON, INDICATOR_NAMES, MEASURE_BY_ID, MODEL_VERSION,
+    BASE, BUDGET, UNIT, HORIZON, INDICATOR_NAMES, MEASURE_BY_ID, MODEL_VERSION,
     POPULATION, SECTORS, SECTOR_BY_KEY, SYNERGIES, WEIGHTS,
 )
 
@@ -118,7 +118,7 @@ def validate_allocations(allocations: dict[str, int]) -> list[str]:
             errors.append(f"{SECTOR_BY_KEY[key].label}: требуется целая неотрицательная сумма в тенге.")
     if not errors and sum(allocations.values()) > BUDGET:
         excess = sum(allocations.values()) - BUDGET
-        errors.append(f"Бюджет превышен на {excess:,.0f} ₸. Уменьшите расходы.".replace(",", " "))
+        errors.append(f"Бюджет превышен на {excess / UNIT:g} ед. Уменьшите расходы.")
     return errors
 
 
@@ -159,7 +159,7 @@ def validate_decisions(decisions: list[Decision], *, require_five: bool = True) 
         errors.append("Не более 2 мероприятий из одного направления.")
     spent = sum(MEASURE_BY_ID[m].cost for m in ids)
     if spent > BUDGET:
-        errors.append(f"Бюджет превышен на {(spent - BUDGET) // 1_000_000} млн ₸.")
+        errors.append(f"Бюджет превышен на {(spent - BUDGET) / UNIT:g} ед.")
     for d in decisions:
         measure = MEASURE_BY_ID[d.measure_id]
         if measure.scope == "district" and d.district not in BASE:

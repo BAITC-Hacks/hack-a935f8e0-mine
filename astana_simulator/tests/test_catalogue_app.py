@@ -86,9 +86,9 @@ def test_switching_modes_preserves_both_plans():
     app = AppTest.from_file(APP).run()
     app.button(key="add_M7").click().run()
     app.selectbox(key="mode").set_value("Распределение бюджета").run()
-    app.slider(key="budget_transport").set_value(180).run()
+    app.slider(key="budget_transport").set_value(18).run()
     app.selectbox(key="mode").set_value("Каталог мероприятий").run()
     assert app.session_state["plan"][0].measure_id == "M7"
     app.selectbox(key="mode").set_value("Распределение бюджета").run()
     assert not app.exception
-    assert app.slider(key="budget_transport").value == 180
+    assert app.slider(key="budget_transport").value == 18

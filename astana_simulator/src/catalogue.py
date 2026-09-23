@@ -146,7 +146,7 @@ def render_catalogue() -> None:
             )
             price, action = st.columns([1, 1.2], vertical_alignment="center")
             with price:
-                st.markdown(f'<div class="action-price">{measure.units} <small>ед. / {measure.cost // 1_000_000} млн ₸</small></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="action-price">{measure.units} <small>ед.</small></div>', unsafe_allow_html=True)
             with action:
                 st.button("✓ В плане · убрать" if is_selected else "+ Добавить в план", key=f"add_{measure.id}",
                           on_click=toggle_measure, args=(measure.id,), disabled=bool(errors),

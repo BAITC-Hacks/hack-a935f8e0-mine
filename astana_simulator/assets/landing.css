@@ -1,0 +1,101 @@
+/* Editorial layout adapted to the supplied Astana Innovations reference. */
+.stApp { background:#f3f2ec; }
+.block-container { max-width:1515px; padding:2.6rem 4.5rem 3rem; }
+.st-key-site_navigation { border-bottom:1px solid #d8dbcf; padding-bottom:30px; margin-bottom:44px; }
+.site-brand { display:flex; align-items:center; gap:16px; color:#223c34; font-size:12px; letter-spacing:1.7px; line-height:1.35; }
+.site-brand>span { background:#234c38; color:#d1ea8d; width:47px; height:47px; text-align:center; font:italic 37px Georgia,serif; }
+.site-brand strong { display:block; font-size:12px; letter-spacing:1.2px; }
+.site-nav { font-size:10px; letter-spacing:1.6px; font-weight:650; text-align:center; color:#59665b; white-space:nowrap; }
+.site-nav span { margin:0 18px; color:#a7afa0; }
+.site-nav i { display:inline-block; width:8px; height:8px; border-radius:50%; background:#88a75f; margin-right:11px; }
+.st-key-reset_scenario button { border:0!important; background:transparent!important; font-size:11px; letter-spacing:.7px; }
+.city-hero { display:grid; grid-template-columns:.86fr 1.14fr; gap:48px; align-items:center; padding:0 0 16px; }
+.hero-index { font-size:10px; color:#9aa598; letter-spacing:1.35px; font-weight:600; }
+.hero-index span { color:#68796c; margin-left:13px; }
+.city-hero h1 { font-family:Georgia,'Times New Roman',serif; font-size:clamp(62px,7.2vw,114px); font-weight:400; line-height:.98; letter-spacing:-5px; color:#1d3028; padding:0; margin:42px 0 27px; }
+.city-hero h1 em { display:inline-block; color:#789467; font-weight:400; line-height:1.1; white-space:nowrap; }
+.city-hero p { font-size:clamp(13px,1.3vw,19px); line-height:1.8; color:#738074; margin:0; }
+.hero-cta { display:inline-flex; gap:30px; align-items:center; margin-top:42px; padding:0 0 12px; border-bottom:1px solid #99ac93; font-size:11px; letter-spacing:1.2px; font-weight:700; text-decoration:none!important; color:#28523d!important; }
+.hero-cta:hover { color:#6b8b56!important; }
+.hero-cta span { font-size:28px; font-weight:400; line-height:1; }
+.city-hero-art { overflow:hidden; background:#dce5d1; }
+.city-hero-art img { display:block; width:100%; height:auto; aspect-ratio:820 / 635; object-fit:cover; }
+.simulation-caption { color:#8a9986; font-size:9px; letter-spacing:1.6px; margin:0 0 4px; }
+.simulation-caption span { color:#91aa81; margin-left:18px; font-size:7px; }
+.baseline-strip { display:grid; grid-template-columns:1.2fr 1fr 1.1fr .8fr; border-top:1px solid #d7ddce; border-bottom:1px solid #d7ddce; padding:35px 0; margin-bottom:45px; }
+.baseline-strip>div { border-left:1px solid #d7ddce; padding:0 30px; }
+.baseline-strip>div:first-child { border:0; padding-left:0; }
+.baseline-strip label { display:block; color:#81917b; font-size:9px; letter-spacing:1.35px; }
+.baseline-strip strong { display:block; font-size:48px; font-weight:500; line-height:1.2; letter-spacing:-2.6px; color:#1e3329; margin:8px 0 3px; }
+.baseline-strip em { color:#859e76; font-style:normal; }
+.baseline-strip sub { font-size:15px; letter-spacing:0; bottom:0; }
+.baseline-strip small { color:#8b9585; font-size:10px; }
+.baseline-intro p { font:24px/1.2 Georgia,serif; color:#263c2c; margin:18px 0 0; }
+.district-brief-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:15px; margin:10px 0 22px; }
+.district-brief { display:flex; flex-direction:column; padding:18px 16px; background:#f9faf3; border:1px solid #dfe4d6; border-radius:4px; }
+.district-brief.urgent { border-top:3px solid #b78c62; padding-top:16px; background:#f6f1e6; }
+.district-brief-index { display:flex; align-items:center; gap:9px; font-size:10px; color:#90a085; }
+.district-brief-index span { font-size:7px; letter-spacing:.6px; color:#839077; }
+.district-brief h3 { font:28px Georgia,serif!important; letter-spacing:-.7px; color:#304b35; margin:17px 0 10px; padding:0; }
+.district-brief p { font-size:11px; color:#7a8873; line-height:1.65; margin:0 0 18px; flex:1; }
+.district-brief-bottom { border-top:1px solid #e0e5d6; padding-top:12px; }
+.district-brief-bottom strong { font-size:27px; font-weight:500; color:#557a47; }
+.district-brief-bottom small { font-size:10px; color:#91a087; }
+.district-brief-bottom>span { display:block; font-size:9px; color:#8b967f; margin-top:4px; }
+.workspace-heading { scroll-margin-top:55px; border-top:1px solid #d5ddca; margin:35px 0 24px; padding-top:30px; }
+.workspace-heading>span { color:#8a9b7e; font-size:10px; letter-spacing:1.4px; }
+.workspace-heading h2 { font:42px/1.2 Georgia,serif; color:#2b4935; padding:0; margin:15px 0 12px; }
+.workspace-heading p { font-size:13px; color:#84927b; margin:0; }
+.st-key-planning_panel { background:#eaf0e1; border-color:#d5dfc9!important; padding:17px!important; border-radius:7px!important; }
+.st-key-planning_panel .budget-number { font-size:49px; font-weight:500; }
+.st-key-planning_panel .section-kicker { margin-top:0; }
+.st-key-planning_panel [data-testid="stCaptionContainer"] { font-size:10px; color:#859279; }
+.st-key-planning_panel .plan-count { font-size:30px; }
+.st-key-planning_panel .selected-item strong { font-size:11px; }
+.st-key-planning_panel .selected-item small { font-size:9px; }
+.st-key-planning_panel button { font-size:11px; }
+.st-key-simulator_workspace .metric-box { min-height:135px; padding:16px; }
+.st-key-simulator_workspace .metric-title { font-size:8px; letter-spacing:.7px; }
+.st-key-simulator_workspace .metric-value { font-size:31px; }
+.st-key-simulator_workspace [role="tablist"] { gap:17px; }
+.footer { margin-top:50px; }
+@media(min-width:1300px) { .city-hero-copy { padding-right:8px; } }
+@media(max-width:1100px) {
+ .block-container { padding:2rem 2.5rem; }
+ .city-hero { gap:30px; }
+ .city-hero h1 { font-size:clamp(54px,7vw,78px); letter-spacing:-3px; margin-top:28px; }
+ .site-nav { font-size:8px; letter-spacing:.9px; }
+ .site-nav span { margin:0 9px; }
+ .baseline-strip>div { padding:0 20px; }
+ .baseline-strip strong { font-size:40px; }
+ .district-brief-grid { gap:9px; }
+ .district-brief { padding:15px 11px; }
+ .district-brief.urgent { padding-top:13px; }
+}
+@media(max-width:800px) {
+ .block-container { padding:1.5rem; }
+ .site-nav { display:none; }
+ .city-hero { grid-template-columns:1fr; gap:25px; }
+ .city-hero h1 { font-size:76px; }
+ .city-hero-art img { max-height:360px; object-fit:cover; }
+ .hero-cta { margin-top:22px; }
+ .baseline-strip { grid-template-columns:1fr 1fr; row-gap:26px; padding:25px 0; margin-bottom:25px; }
+ .baseline-strip>div:nth-child(3) { border-left:0; padding-left:0; }
+ .district-brief-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .district-brief:last-child { grid-column:1 / -1; }
+ .st-key-simulator_workspace>[data-testid="stVerticalBlock"]>[data-testid="stHorizontalBlock"] { flex-wrap:wrap; }
+ .st-key-simulator_workspace>[data-testid="stVerticalBlock"]>[data-testid="stHorizontalBlock"]>[data-testid="stColumn"] { width:100%!important; flex:1 1 100%!important; }
+ .st-key-simulator_workspace [data-testid="stColumn"]:has(>.stVerticalBlock .st-key-planning_panel) { order:-1; }
+}
+@media(max-width:480px) {
+ .block-container { padding:1.3rem 1rem; }
+ .city-hero h1 { font-size:65px; }
+ .site-brand { gap:9px; font-size:9px; }
+ .site-brand strong { font-size:9px; }
+ .site-brand>span { width:37px; height:39px; font-size:30px; }
+ .st-key-site_navigation { margin-bottom:26px; padding-bottom:20px; }
+ .baseline-intro p { font-size:21px; }
+ .baseline-strip label { font-size:8px; }
+ .baseline-strip strong { font-size:38px; }
+ .workspace-heading h2 { font-size:34px; }
+}

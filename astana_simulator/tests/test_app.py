@@ -33,13 +33,13 @@ def test_app_starts_without_keys_and_has_five_sliders():
 
 def test_overbudget_blocks_score_export_and_ai_then_recovers():
     app = allocation_app()
-    app.slider(key="budget_transport").set_value(1000).run()
+    app.slider(key="budget_transport").set_value(100).run()
     assert not app.exception
     assert any("превышен" in e.value for e in app.error)
     assert app.button(key="run_ai").disabled
     assert not app.get("download_button")
     assert "current_fingerprint" not in app.session_state
-    app.slider(key="budget_transport").set_value(200).run()
+    app.slider(key="budget_transport").set_value(20).run()
     assert not app.error
     assert not app.exception
 
@@ -85,7 +85,7 @@ def test_ai_is_explicit_cached_and_invalidated_on_change(monkeypatch):
     app.run()
     assert len(calls) == 1
     assert app.button(key="run_ai").disabled
-    app.slider(key="budget_transport").set_value(190).run()
+    app.slider(key="budget_transport").set_value(19).run()
     assert not any("Отчет OpenAI" in m.value for m in app.markdown)
     assert any("Сценарий изменен" in e.value for e in app.info)
     assert not app.button(key="run_ai").disabled
@@ -129,3 +129,31 @@ def test_city_baseline_is_first_and_independent_of_scenario(entry):
     assert any("С чего начать акиму" in m.value for m in app.markdown)
     app.button(key="load_example").click().run()
     assert table == next(m.value for m in app.markdown if 'class="baseline-table"' in m.value)
+
+
+def test_landing_shows_100_units_and_links_to_builder():
+    app = AppTest.from_file(APP).run()
+    landing = next(m.value for m in app.markdown if '<section class="city-hero">' in m.value)
+    assert 'href="#scenario-builder"' in landing
+    assert '<strong>100<sub> ед.</sub>' in landing
+    assert '<strong>52<em>.56</em>' in landing
+    assert 'data:image/svg+xml;base64,' in landing
+    assert not app.sidebar.children
+    app.selectbox(key="mode").set_value("Распределение бюджета").run()
+    assert all(s.value == 20 and s.max == 100 and s.step == 1 for s in app.slider)
+    app.slider(key="budget_transport").set_value(100).run()
+    assert any("80 ед." in item.value for item in app.error)
+
+
+def test_header_reset_clears_both_modes_and_reports():
+    app = AppTest.from_file(APP).run()
+    app.button(key="load_example").click().run()
+    app.selectbox(key="mode").set_value("Распределение бюджета").run()
+    app.slider(key="budget_transport").set_value(18).run()
+    app.button(key="reset_scenario").click().run()
+    assert not app.exception
+    assert app.session_state["plan"] == []
+    assert app.selectbox(key="mode").value == "Каталог мероприятий"
+    assert "ai_run" not in app.session_state
+    app.selectbox(key="mode").set_value("Распределение бюджета").run()
+    assert all(s.value == 20 for s in app.slider)
