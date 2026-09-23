@@ -6,9 +6,10 @@ import pydeck as pdk
 import streamlit as st
 
 from src.catalogue import focus_district, focus_from_picker, move_to_focused
-from src.data import BASE, INDICATOR_NAMES, MEASURE_BY_ID, PROFILES
+from src.data import BASE, INDICATOR_NAMES, MEASURE_BY_ID
 from src.geography import LAYERS, district_from_event, load_boundaries, map_data
 from src.model import BASELINE, Scenario
+from src.game_ui import critical_problems, district_details, district_color
 
 
 def select_on_map(key: str) -> None:
@@ -21,10 +22,8 @@ def reset_view() -> None:
 
 
 def render_map(scenario: Scenario | None, *, catalogue_mode: bool) -> None:
-    st.markdown('<div class="section-kicker">АСТАНА / ПЯТЬ РАЙОНОВ КЕЙСА</div>', unsafe_allow_html=True)
-    st.subheader("Посмотрите, где меняется город")
-    st.caption("Нажмите на район, чтобы выбрать его. Колесо — масштаб, перетаскивание — перемещение.")
-    map_column, details_column = st.columns([2.2, 1], gap="large")
+    st.subheader("🛰️ Ситуационный центр")
+    map_column, details_column = st.columns([3, 1], gap="medium")
     focused = st.session_state["focused_district"]
     with map_column, st.container(border=True, key="map_panel"):
         a, b = st.columns([1.4, 1])
@@ -36,6 +35,11 @@ def render_map(scenario: Scenario | None, *, catalogue_mode: bool) -> None:
         before = period == "До" or scenario is None
         data, labels = map_data(scenario, layer=layer, focused=focused, before=before)
         for label in labels:
+            orders = [MEASURE_BY_ID[d.measure_id] for d in st.session_state["plan"]
+                      if catalogue_mode and (d.district is None or d.district == label["name"])]
+            if orders:
+                label["text"] += f"\nУказов: {len(orders)}"
+                label["tooltip"] += "\nВ плане: " + "; ".join(m.name for m in orders)
             label["properties"] = {"name": label["name"], "tooltip": label["tooltip"]}
         show_streets = st.session_state.get("map_streets", True)
         deck = pdk.Deck(
@@ -57,7 +61,7 @@ def render_map(scenario: Scenario | None, *, catalogue_mode: bool) -> None:
             tooltip={"text": "{tooltip}", "style": {"backgroundColor": "#183f3c", "color": "white", "fontSize": "12px"}},
         )
         key = f"district_map_{st.session_state.get('map_revision', 0)}"
-        st.pydeck_chart(deck, height=430, key=key, on_select=lambda: select_on_map(key), selection_mode="single-object")
+        st.pydeck_chart(deck, height=480, key=key, on_select=lambda: select_on_map(key), selection_mode="single-object")
         tools, streets = st.columns([1, 1])
         with tools:
             st.button("↺ Весь город", key="reset_map", on_click=reset_view, width="stretch")
@@ -68,6 +72,7 @@ def render_map(scenario: Scenario | None, *, catalogue_mode: bool) -> None:
             "gain": "Светлый → зеленый: прирост от 0 до 15+ пунктов.",
             "critical": "Терракотовый: есть показатели ниже 40. Зеленый: таких показателей нет.",
         }
+        st.caption("Нажмите на район для управления. Колесо — масштаб; перетаскивание — перемещение.")
         st.caption(("Исходное состояние. " if before else "Результат сценария. ") + legends[layer])
     with details_column:
         st.session_state.setdefault("district_picker", focused)
@@ -76,20 +81,26 @@ def render_map(scenario: Scenario | None, *, catalogue_mode: bool) -> None:
         indicators = BASE if before else scenario.indicators
         value = score.district_scores[focused]
         change = value - BASELINE.district_scores[focused]
-        st.markdown(f'<div class="district-focus"><span>В ФОКУСЕ</span><h3>{escape(focused)}</h3>'
+        color = district_color(focused, score, indicators)
+        st.markdown(f'<div class="district-focus" style="border-top:4px solid {color}"><span>📍 ЗОНА УПРАВЛЕНИЯ</span><h3>{escape(focused)}</h3>'
                     f'<strong>{value:.2f}<small> / 100</small></strong>'
                     f'<p>{change:+.2f} к базе · {"до решений" if before else "после решений"}</p></div>', unsafe_allow_html=True)
-        st.caption(PROFILES[focused])
+
         st.markdown("**Требует внимания**")
         for code, number in sorted(indicators[focused].items(), key=lambda item: item[1])[:2]:
             st.caption(f"{INDICATOR_NAMES[code]} · {number:.1f} / 100")
             st.progress(max(0, min(1, number / 100)))
+        for problem, value in critical_problems(indicators[focused]):
+            st.warning(f"⚠ {problem}: {value:g} < 40. Критический дефицит.")
+        district_details(focused, indicators)
         if catalogue_mode:
-            st.caption("Этот район подставляется в новые карточки мероприятий.")
+            st.markdown(f"**Указы для района {focused}**")
+            st.markdown('<a class="shop-link" href="#decree-shop" target="_self">Открыть магазин указов ↓</a>', unsafe_allow_html=True)
+            st.caption("Район уже выбран для новых указов. Принятые решения сохраняют адресатов.")
             district_measures = [d.measure_id for d in st.session_state["plan"] if d.district is not None]
             if district_measures:
                 measure_id = st.selectbox("Перенести выбранную меру", district_measures,
-                                          format_func=lambda m: f"{m} · {MEASURE_BY_ID[m].name}", key="move_measure")
+                                          format_func=lambda m: MEASURE_BY_ID[m].name, key="move_measure")
                 st.button(f"Назначить район {focused}", key="apply_map_district", on_click=move_to_focused,
                           args=(measure_id,), width="stretch")
     metadata = load_boundaries()

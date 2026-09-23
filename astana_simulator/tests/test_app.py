@@ -119,10 +119,10 @@ def test_failed_openai_report_can_be_retried(monkeypatch):
 
 
 @pytest.mark.parametrize("entry", ["app.py", "streamlit_app.py"])
-def test_city_baseline_is_first_and_independent_of_scenario(entry):
+def test_map_is_first_and_baseline_remains_independent_of_scenario(entry):
     app = AppTest.from_file(str(Path(APP).with_name(entry))).run()
     assert not app.exception
-    assert app.subheader[0].value == "Текущее состояние города и дефициты"
+    assert app.subheader[0].value == "🛰️ Ситуационный центр"
     table = next(m.value for m in app.markdown if 'class="baseline-table"' in m.value)
     assert all(name in table for name in ("Есиль", "Алматы", "Сарыарка", "Байконур", "Нура"))
     assert 'critical">35' in table and 'deficit">42' in table
@@ -131,13 +131,12 @@ def test_city_baseline_is_first_and_independent_of_scenario(entry):
     assert table == next(m.value for m in app.markdown if 'class="baseline-table"' in m.value)
 
 
-def test_landing_shows_100_units_and_links_to_builder():
+def test_hud_shows_100_coins_and_keeps_budget_scale():
     app = AppTest.from_file(APP).run()
-    landing = next(m.value for m in app.markdown if '<section class="city-hero">' in m.value)
-    assert 'href="#scenario-builder"' in landing
-    assert '<strong>100<sub> ед.</sub>' in landing
-    assert '<strong>52<em>.56</em>' in landing
-    assert 'data:image/svg+xml;base64,' in landing
+    hud = next(m.value for m in app.markdown if '<div class="game-hud">' in m.value)
+    assert 'Потрачено 0 из 100' in hud
+    assert '52,56' in hud
+    assert 'монет доступно' in hud
     assert not app.sidebar.children
     app.selectbox(key="mode").set_value("Распределение бюджета").run()
     assert all(s.value == 20 and s.max == 100 and s.step == 1 for s in app.slider)

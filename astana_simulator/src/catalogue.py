@@ -4,7 +4,7 @@ from html import escape
 
 import streamlit as st
 
-from src.data import BASE, MEASURES, MEASURE_BY_ID, SECTORS, SECTOR_BY_KEY
+from src.data import BASE, HORIZON, INDICATOR_NAMES, MEASURES, MEASURE_BY_ID, SECTORS, SECTOR_BY_KEY
 from src.model import Decision, EXAMPLE, InvalidScenario, validate_decisions
 from src.planner import add_measure, move_measure, remove_measure
 
@@ -107,48 +107,55 @@ def move_to_focused(measure_id: str) -> None:
         st.session_state["planner_notice"] = str(exc)
 
 
-def render_catalogue() -> None:
-    st.markdown('<div class="section-kicker">01 / СОБЕРИТЕ ПЛАН</div>', unsafe_allow_html=True)
-    st.subheader("Маленькие решения. Большие перемены.")
-    st.caption("Выберите ровно 5 мероприятий. Не более двух в одном направлении. Район можно выбрать на карте или в карточке.")
+def render_catalogue(scenario=None) -> None:
+    icons = {"transport": "🚎", "green": "🌳", "social": "🏫", "safety": "🛡️", "services": "⚡"}
+    st.markdown('<div id="decree-shop" class="shop-title"><span>КОЛЛЕКЦИЯ / 14 УКАЗОВ</span><h2>🏛️ Магазин указов</h2></div>', unsafe_allow_html=True)
+    st.info(f"📍 Управление: {st.session_state['focused_district']}. Район выбран на карте или карточке. "
+            "Для каждого районного указа проверьте адресата перед применением.")
     filters = {"Все": None, **{s.short: s.key for s in SECTORS}}
     st.segmented_control("Направление", list(filters), key="catalogue_filter", selection_mode="single")
     active = filters.get(st.session_state.get("catalogue_filter"))
     selected = {d.measure_id: d for d in st.session_state["plan"]}
+    contributions = {item["id"]: item for item in scenario.contributions} if scenario else {}
     shown = [m for m in MEASURES if active is None or m.sector == active]
-    columns = st.columns(2, gap="medium")
-    for index, measure in enumerate(shown):
-        sector = SECTOR_BY_KEY[measure.sector]
-        is_selected = measure.id in selected
-        with columns[index % 2], st.container(border=True, key=f"card_{measure.id}"):
-            st.markdown(
-                f'<div class="action-head {"selected-head" if is_selected else ""}">'
-                f'<span>{measure.id} · {measure.lag:02d} КВ. ЛАГ</span>'
-                f'<b style="color:{sector.color}">{escape(sector.short.upper())}</b></div>'
-                f'<div class="action-name">{escape(measure.name)}</div>'
-                f'<div class="action-desc">{escape(NOTES[measure.id])}</div>', unsafe_allow_html=True,
-            )
-            st.markdown('<div class="effect-row">' + "".join(
-                f'<span class="effect {"negative" if value < 0 else ""}">{k} {value:+g}</span>'
-                for k, value in measure.effects
-            ) + '</div>', unsafe_allow_html=True)
-            target = None
-            if measure.scope == "district":
-                key = f"target_{measure.id}"
-                if key not in st.session_state:
-                    st.session_state[key] = selected[measure.id].district if is_selected else st.session_state["pending_targets"].get(measure.id, st.session_state["focused_district"])
-                target = st.selectbox(f"Район для {measure.id}", list(BASE), key=key,
-                                      on_change=change_target, args=(measure.id,), label_visibility="collapsed")
-            else:
-                st.markdown('<div class="city-scope">◎ Действует во всех пяти районах</div>', unsafe_allow_html=True)
-            errors = [] if is_selected else validate_decisions(
-                [*st.session_state["plan"], Decision(measure.id, target)], require_five=False,
-            )
-            price, action = st.columns([1, 1.2], vertical_alignment="center")
-            with price:
-                st.markdown(f'<div class="action-price">{measure.units} <small>ед.</small></div>', unsafe_allow_html=True)
-            with action:
-                st.button("✓ В плане · убрать" if is_selected else "+ Добавить в план", key=f"add_{measure.id}",
-                          on_click=toggle_measure, args=(measure.id,), disabled=bool(errors),
-                          help=" ".join(errors) if errors else None, width="stretch", type="primary" if is_selected else "secondary")
-    st.caption("Плашки в карточках показывают полный эффект. При расчете учитывается лаг на горизонте 8 кварталов.")
+    with st.container(key="decree_shop"):
+        for start in range(0, len(shown), 3):
+            columns = st.columns(3, gap="medium")
+            for col, measure in zip(columns, shown[start:start+3]):
+                sector = SECTOR_BY_KEY[measure.sector]
+                is_selected = measure.id in selected
+                with col, st.container(border=True, key=f"card_{measure.id}"):
+                    st.markdown(
+                        f'<div class="action-head {"selected-head" if is_selected else ""}">'
+                        f'<span class="decree-icon">{icons[measure.sector]}</span><b>{escape(sector.short.upper())}</b>'
+                        f'<span class="coin-price">🪙 {measure.units}</span></div>'
+                        f'<div class="action-name">{escape(measure.name)}</div>'
+                        f'<div class="action-desc">{"Один район" if measure.scope == "district" else "Весь город"} · '
+                        f'лаг {measure.lag} кв. · горизонт {HORIZON} кв.</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="effect-row">' + ''.join(
+                        f'<span class="effect {"negative" if value < 0 else ""}">{escape(INDICATOR_NAMES[k])} {value:+g}</span>'
+                        for k, value in measure.effects) + '</div>', unsafe_allow_html=True)
+                    target = None
+                    if measure.scope == "district":
+                        key = f"target_{measure.id}"
+                        if key not in st.session_state:
+                            st.session_state[key] = selected[measure.id].district if is_selected else st.session_state["pending_targets"].get(measure.id, st.session_state["focused_district"])
+                        target = st.selectbox("📍 Район указа", list(BASE), key=key,
+                                              on_change=change_target, args=(measure.id,))
+                    else:
+                        st.markdown('<div class="city-scope">🌐 Действует во всех пяти районах</div>', unsafe_allow_html=True)
+                    with st.expander("Эффекты и детали"):
+                        st.caption(f"Код: {measure.id} · стоимость: {measure.units} монет · лаг: {measure.lag} кв.")
+                        st.caption("Плашки показывают полный эффект из каталога. Лаг, синергии и ограничение 0–100 учитываются калькулятором.")
+                        if measure.id in contributions:
+                            st.caption("Вклад из расчёта текущего плана с учётом лага, до синергий и ограничения шкалы:")
+                            for code, value in contributions[measure.id]["realized_effects"].items():
+                                st.write(f"{INDICATOR_NAMES[code]}: {value:+g} пункта")
+                    errors = [] if is_selected else validate_decisions(
+                        [*st.session_state["plan"], Decision(measure.id, target)], require_five=False)
+                    st.button("✓ Принят · убрать" if is_selected else "＋ Применить указ", key=f"add_{measure.id}",
+                              on_click=toggle_measure, args=(measure.id,), disabled=bool(errors),
+                              help=" ".join(errors) if errors else None, width="stretch", type="primary" if is_selected else "secondary")
+                    if errors:
+                        st.caption("🔒 " + " ".join(errors))
+    st.caption("Стоимость, эффекты и лаги — из каталога кейса. Технические ID сохранены в данных и подробностях.")

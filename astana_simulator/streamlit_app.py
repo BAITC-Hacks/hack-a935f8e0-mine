@@ -22,7 +22,8 @@ from src.model import (
 )
 from src.catalogue import initialize, load_example, remove_from_plan, render_catalogue, reset_plan
 from src.map_view import render_map
-from src.landing import render_landing, render_district_briefing
+from src.landing import render_district_briefing
+from src.game_ui import render_header, render_hud, render_launch, render_slots, render_district_cards
 
 ROOT = Path(__file__).resolve().parent
 MODES = ["Каталог мероприятий", "Распределение бюджета"]
@@ -33,7 +34,7 @@ PRESETS = {
 }
 st.set_page_config(page_title="Аким на 5 часов · Astana Lab", page_icon="🏙️", layout="wide")
 st.markdown(f"<style>{(ROOT / 'assets/catalogue.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-st.markdown(f"<style>{(ROOT / 'assets/landing.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+st.markdown(f"<style>{(ROOT / 'assets/game.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
 
 def number(value: float, digits: int = 2) -> str:
@@ -68,76 +69,37 @@ def show_chart(fig: go.Figure, key: str) -> None:
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key=key)
 
 
-def planning_panel(providers: list, panel) -> tuple[str, dict, list[Decision], list[str]]:
-    with panel, st.container(border=True, key="planning_panel"):
-        st.markdown('<div class="section-kicker">ВАШ СЦЕНАРИЙ</div>', unsafe_allow_html=True)
+def scenario_controls() -> tuple[str, dict, list[Decision], list[str]]:
+    with st.expander("⚙️ Режим и настройки сценария"):
         mode = st.selectbox("Режим симуляции", MODES, key="mode")
-        st.markdown('<div class="budget-label">Бюджет вашего города</div>'
-                    '<div class="budget-number">100 <span>ед.</span></div>', unsafe_allow_html=True)
-        st.caption("Общий лимит · одинаковый для всех команд")
-        budget_slot = st.empty()
-        progress_slot = st.empty()
         allocations = {}
         decisions = []
         if mode == "Распределение бюджета":
-            st.markdown('<div class="section-kicker">ВАШИ ПРИОРИТЕТЫ</div>', unsafe_allow_html=True)
-            st.caption("5 направлений · шаг 1 условная единица")
+            st.caption("Дополнительная непрерывная модель · 5 направлений · шаг 1 монета")
             saved = st.session_state.setdefault("budget_plan", {s.key: 20 for s in SECTORS})
             for sector in SECTORS:
                 key = f"budget_{sector.key}"
                 if key not in st.session_state:
                     st.session_state[key] = saved[sector.key]
-                allocations[sector.key] = st.slider(
-                    sector.label, min_value=0, max_value=100, step=1,
-                    key=key, format="%d ед.", help=sector.description,
-                ) * UNIT
+                allocations[sector.key] = st.slider(sector.label, min_value=0, max_value=100, step=1,
+                                                   key=key, format="%d монет", help=sector.description) * UNIT
             st.session_state["budget_plan"] = {k: v // UNIT for k, v in allocations.items()}
+            for col, preset in zip(st.columns(3), PRESETS):
+                with col:
+                    st.button(preset, on_click=set_preset, args=(preset,), key=f"preset_{preset}", width="stretch")
             errors = validate_allocations(allocations)
-            st.markdown('<div class="section-kicker">БЫСТРЫЙ СТАРТ</div>', unsafe_allow_html=True)
-            for preset in PRESETS:
-                st.button(preset, on_click=set_preset, args=(preset,), width="stretch", key=f"preset_{preset}")
         else:
             decisions = st.session_state["plan"]
             allocations = {s.key: 0 for s in SECTORS}
             for decision in decisions:
-                m = MEASURE_BY_ID[decision.measure_id]
-                allocations[m.sector] += m.cost
-            errors = validate_decisions(decisions)
-            st.markdown('<div class="section-kicker">ВАШ ПЛАН</div>'
-                        f'<div class="plan-count">{len(decisions):02d}<span> / 05 решений</span></div>', unsafe_allow_html=True)
-            if not decisions:
-                st.markdown('<div class="empty-plan"><span>＋</span><strong>Город ждет ваших решений</strong>'
-                            '<p>Добавьте мероприятия из каталога. Для районных мер выберите место на карте.</p></div>', unsafe_allow_html=True)
-            for index, decision in enumerate(decisions):
                 measure = MEASURE_BY_ID[decision.measure_id]
-                details, remove = st.columns([5, 1], vertical_alignment="center")
-                with details:
-                    st.markdown(f'<div class="selected-item"><span>{index + 1:02d} / {measure.id}</span>'
-                                f'<strong>{escape(measure.name)}</strong>'
-                                f'<small>{decision.district or "Весь город"} · {measure.units} ед.</small></div>', unsafe_allow_html=True)
-                with remove:
-                    st.button("×", key=f"remove_{measure.id}", help=f"Убрать {measure.name}",
-                              on_click=remove_from_plan, args=(measure.id,))
-            directions = len({MEASURE_BY_ID[d.measure_id].sector for d in decisions})
-            st.caption(f"Затронуто направлений: {directions} из 5")
+                allocations[measure.sector] += measure.cost
+            errors = validate_decisions(decisions)
+        a, b = st.columns(2)
+        with a:
             st.button("Загрузить пример", on_click=load_example, key="load_example", width="stretch")
-            st.button("Сбросить план", on_click=reset_plan, key="reset_plan", width="stretch", disabled=not decisions)
-        spent = sum(allocations.values())
-        remaining = BUDGET - spent
-        remainder_label = "Осталось" if remaining >= 0 else "Превышение"
-        budget_slot.markdown(
-            f'<div class="budget-note"><span>{remainder_label}</span>'
-            f'<strong>{abs(remaining) // UNIT} ед.</strong></div>', unsafe_allow_html=True,
-        )
-        progress_slot.progress(min(spent / BUDGET, 1.0))
-        st.divider()
-        with st.expander("Подключение AI"):
-            for provider in providers:
-                st.caption(f"{'● Ключ задан' if provider.api_key else '○ Нет ключа'} · {provider.name}")
-            st.caption("Ключ читается на сервере. Отчет запускается только по кнопке; запрос может быть платным.")
-            st.code("OPENAI_API_KEY=…", language="dotenv")
-            st.caption("После изменения .env перезапустите приложение. Переменная окружения имеет приоритет.")
-        st.caption("План → расчет → AI-разбор. Синтетические данные HackAlem AI.")
+        with b:
+            st.button("Сбросить план", on_click=reset_plan, key="reset_plan", disabled=not st.session_state["plan"], width="stretch")
     return mode, allocations, decisions, errors
 
 
@@ -188,8 +150,8 @@ def reset_scenario() -> None:
     st.session_state["mode"] = "Каталог мероприятий"
     st.session_state["budget_plan"] = {s.key: 20 for s in SECTORS}
     set_preset("Баланс")
-    st.session_state["catalogue_tabs"] = "Каталог мероприятий"
-    st.session_state["allocation_tabs"] = "Обзор сценария"
+    for key in ("launched_fingerprint", "celebrated_scenarios", "launch_feedback"):
+        st.session_state.pop(key, None)
 
 
 def overview(scenario: Scenario, key_prefix: str = "overview") -> None:
@@ -270,10 +232,11 @@ def districts(scenario: Scenario) -> None:
         "Изменение": scenario.indicators[district][k] - BASE[district][k],
         "Статус": "Ниже порога 40" if scenario.indicators[district][k] < 40 else "Порог 40 достигнут",
     } for k in INDICATOR_NAMES]
-    st.dataframe(pd.DataFrame(indicator_rows), hide_index=True, width="stretch", column_config={
-        "После": st.column_config.NumberColumn(format="%.2f"),
-        "Изменение": st.column_config.NumberColumn(format="%+.2f"),
-    })
+    with st.expander("📊 Детали района"):
+        st.dataframe(pd.DataFrame(indicator_rows), hide_index=True, width="stretch", column_config={
+            "После": st.column_config.NumberColumn(format="%.2f"),
+            "Изменение": st.column_config.NumberColumn(format="%+.2f"),
+        })
     if scenario.synergies:
         st.success("Сработавшие синергии: " + "; ".join(scenario.synergies))
     if scenario.mode == "measures":
@@ -369,72 +332,43 @@ def ai_section(scenario: Scenario, providers: list) -> dict:
 def main() -> None:
     initialize()
     providers = load_providers()
-    render_landing(reset_scenario)
-    render_city_baseline()
-    st.markdown('<div id="scenario-builder" class="workspace-heading"><span>02 / ЛАБОРАТОРИЯ РЕШЕНИЙ</span><h2>Каким станет ваш город?</h2><p>Соберите план, выберите районы на карте и сравните результат.</p></div>', unsafe_allow_html=True)
-    workspace = st.container(key="simulator_workspace")
-    with workspace:
-        content, panel = st.columns([3, 1], gap="large")
-        mode, allocations, decisions, errors = planning_panel(providers, panel)
-    with content:
-        catalogue_mode = mode == "Каталог мероприятий"
-        scenario = None
-        if not errors:
-            scenario = simulate_decisions(decisions) if catalogue_mode else simulate_allocations(allocations)
-            st.session_state["current_fingerprint"] = scenario.fingerprint
-        else:
-            st.session_state.pop("current_fingerprint", None)
-        notification = st.empty()
-        if notice := st.session_state.pop("planner_notice", None):
-            notification.info(notice)
-            st.toast(notice)
-        spent = sum(allocations.values())
-        a, b, c = st.columns([1.25, 1, 1], gap="medium")
-        with a:
-            value = number(scenario.score.total) if scenario else "—"
-            note = (f'<span class="delta">{scenario.score.total - BASELINE.total:+.2f}</span> к базе {number(BASELINE.total)}'
-                    if scenario else "Появится после проверки пяти решений" if catalogue_mode else "Расчет заблокирован: проверьте бюджет")
-            metric_card("ASTANA QUALITY OF LIFE SCORE", f'{value} <small>/ 100</small>', note, featured=True)
-        with b:
-            metric_card("ИНВЕСТИЦИИ В ГОРОД", f'{spent // UNIT} <small>ед.</small>',
-                        f"{spent / BUDGET:.0%} бюджета · {spent // 10_000_000} из 100 ед.")
-        with c:
-            if catalogue_mode:
-                metric_card("ПРИНЯТО РЕШЕНИЙ", f'{len(decisions):02d} <small>/ 05</small>', "Горизонт эффекта — 8 кварталов")
-            else:
-                metric_card("КРИТИЧЕСКИЕ ПОКАЗАТЕЛИ", f'{len(scenario.score.critical) if scenario else "—"} <small>из 50</small>', "Порог — ниже 40 · в исходных данных: 2")
-        if errors:
-            for error in errors:
-                if catalogue_mode and len(decisions) < 5 and error == "Нужно выбрать ровно 5 мероприятий.":
-                    st.info(f"Выбрано {len(decisions)} из 5 мероприятий. Карта показывает исходное состояние города.")
-                else:
-                    st.error(error)
-            if st.session_state.get("ai_run"):
-                st.caption("Предыдущий AI-отчет скрыт: текущий план еще не прошел проверку.")
-        baseline = Scenario("measures" if catalogue_mode else "allocation", {s.key: 0 for s in SECTORS}, [],
-                            {d: dict(row) for d, row in BASE.items()}, BASELINE, [], [])
-        tabs = st.tabs(
-            ["Каталог мероприятий" if catalogue_mode else "Обзор сценария", "Карта Астаны", "Районы и результат", "Методика"],
-            key="catalogue_tabs" if catalogue_mode else "allocation_tabs", on_change="rerun",
-        )
+    render_header(reset_scenario)
+    mode, allocations, decisions, errors = scenario_controls()
+    catalogue_mode = mode == "Каталог мероприятий"
+    scenario = None
+    if not errors:
+        scenario = simulate_decisions(decisions) if catalogue_mode else simulate_allocations(allocations)
+        st.session_state["current_fingerprint"] = scenario.fingerprint
+    else:
+        st.session_state.pop("current_fingerprint", None)
+    render_hud(scenario, sum(allocations.values()), len(decisions) if catalogue_mode else 5, catalogue_mode)
+    if notice := st.session_state.pop("planner_notice", None):
+        st.info(notice)
+    for error in errors:
+        if error != "Нужно выбрать ровно 5 мероприятий.":
+            st.error(error)
+    render_launch(scenario, errors, catalogue_mode)
+    render_map(scenario, catalogue_mode=catalogue_mode)
+    render_district_cards(scenario)
+    if catalogue_mode:
+        render_slots(decisions)
+        render_catalogue(scenario)
+    baseline = Scenario("measures" if catalogue_mode else "allocation", {s.key: 0 for s in SECTORS}, [],
+                        {d: dict(row) for d, row in BASE.items()}, BASELINE, [], [])
+    with st.expander("📈 Результаты и методика"):
+        tabs = st.tabs(["Районы и результат", "Методика", "Исходное состояние"])
         with tabs[0]:
-            if catalogue_mode:
-                render_catalogue()
-            elif scenario:
-                overview(scenario)
-            else:
-                st.warning("Расчет заблокирован. Уменьшите расходы в панели сценария.")
-        with tabs[1]:
-            render_map(scenario, catalogue_mode=catalogue_mode)
-        with tabs[2]:
             if scenario:
                 overview(scenario, key_prefix="results")
-            else:
-                st.caption("Исходные показатели. Прогноз появится после завершения допустимого плана.")
             districts(scenario or baseline)
-        with tabs[3]:
+        with tabs[1]:
             methodology(scenario or baseline, is_preview=scenario is None)
-        st.divider()
+        with tabs[2]:
+            render_city_baseline()
+    with st.expander("🤖 Штаб советников · OpenAI", expanded=False):
+        for provider in providers:
+            st.caption(f"{'● Ключ задан' if provider.api_key else '○ Нет ключа'} · {provider.name}")
+        st.caption("Ключ читается из .env на сервере. AI запускается только по кнопке.")
         if scenario:
             reports = ai_section(scenario, providers)
             export = {
@@ -445,11 +379,10 @@ def main() -> None:
             st.download_button("Скачать сценарий и отчеты · JSON", json.dumps(export, ensure_ascii=False, indent=2),
                                file_name=f"astana-{scenario.fingerprint[:8]}.json", mime="application/json", key="export")
         else:
-            st.subheader("Сначала план. Затем экспертный разбор.")
             st.caption("AI-анализ и экспорт доступны после проверки допустимого сценария.")
             st.button("Получить AI-разбор", disabled=True, type="primary", key="run_ai")
-    st.markdown('<div class="footer"><span>AKIM / ASTANA · Аким на 5 часов</span>'
-                '<span>Учебная симуляция · данные HackAlem AI</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer"><span>🏙️ AKIM / ASTANA · СИТУАЦИОННЫЙ ЦЕНТР</span>'
+                '<span>Синтетические данные HackAlem AI · горизонт 8 кварталов</span></div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

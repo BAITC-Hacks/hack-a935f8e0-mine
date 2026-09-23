@@ -1,4 +1,7 @@
-"""Alternate entry point: python -m streamlit run app.py (inside this folder)."""
+"""Game command center entry point: run inside astana_simulator.
+
+The shared Streamlit UI keeps both supported launch commands identical;
+calculation and validation remain in src/model.py."""
 
 from pathlib import Path
 import runpy
