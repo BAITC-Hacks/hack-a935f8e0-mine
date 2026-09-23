@@ -88,7 +88,7 @@ div.stButton>button{border-radius:10px;font-weight:900;border:1px solid #728d80}
 div.stButton>button[kind="primary"]{background:linear-gradient(180deg,#86b853,#558d45);border:1px solid #b2d67d;color:#102013;min-height:2.8rem;box-shadow:0 4px 0 #385d34}
 [data-testid="stExpander"]{background:#172530;border:1px solid #405763;border-radius:11px}
 @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 #91d36a88}50%{transform:scale(1.015);box-shadow:0 0 0 10px #91d36a00}}
-div.stButton>button[kind="primary"].launch-ready{animation:pulse 1.6s infinite}
+div.st-key-launch_simulation button{animation:pulse 1.6s infinite}
 </style>
 """, unsafe_allow_html=True)
 
@@ -209,20 +209,19 @@ def _point_in_ring(lon: float, lat: float, ring: list[list[float]]) -> bool:
 
 
 def _map_region_from_event(map_state: dict) -> str | None:
+    clicked = map_state.get("last_clicked") or {}
+    lat, lon = clicked.get("lat"), clicked.get("lng")
+    if lat is not None and lon is not None:
+        if abs(lat - ASTANA_CENTER[0]) < 0.006 and abs(lon - ASTANA_CENTER[1]) < 0.006:
+            return "Город"
+        for district, ring in DISTRICT_POLYGONS.items():
+            if _point_in_ring(float(lon), float(lat), ring):
+                return district
     drawing = map_state.get("last_active_drawing") or {}
     props = drawing.get("properties") or {}
     name = props.get("name") or props.get("district")
     if name in DISTRICTS:
         return name
-    clicked = map_state.get("last_clicked") or {}
-    lat, lon = clicked.get("lat"), clicked.get("lng")
-    if lat is None or lon is None:
-        return None
-    if abs(lat - ASTANA_CENTER[0]) < 0.006 and abs(lon - ASTANA_CENTER[1]) < 0.006:
-        return "Город"
-    for district, ring in DISTRICT_POLYGONS.items():
-        if _point_in_ring(float(lon), float(lat), ring):
-            return district
     return None
 
 
@@ -508,7 +507,6 @@ if validation_error:
     st.warning(f"🧭 До симуляции: {validation_error}")
 
 if len(decisions) == 5:
-    st.markdown('<style>div.stButton>button[kind="primary"]{animation:pulse 1.6s infinite}</style>', unsafe_allow_html=True)
     launch_clicked = st.button(
         "🚀 ЗАПУСТИТЬ СИМУЛЯЦИЮ", type="primary", key="launch_simulation",
         use_container_width=True, disabled=bool(validation_error),
