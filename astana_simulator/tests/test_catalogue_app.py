@@ -12,7 +12,7 @@ APP = str(Path(__file__).resolve().parents[1] / "streamlit_app.py")
 
 @pytest.fixture(autouse=True)
 def isolated_ai(monkeypatch):
-    monkeypatch.setattr(ai, "load_providers", lambda: [Provider("OpenAI", ai.OPENAI_MODEL, ""), Provider("NVIDIA", ai.NVIDIA_MODEL, "")])
+    monkeypatch.setattr(ai, "load_providers", lambda: [Provider("OpenAI", ai.OPENAI_MODEL, "")])
 
 
 def test_empty_catalogue_then_add_remove_and_reset():

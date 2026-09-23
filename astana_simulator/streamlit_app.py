@@ -139,12 +139,51 @@ def sidebar(providers: list) -> tuple[str, dict, list[Decision], list[str]]:
         with st.expander("Подключение AI"):
             for provider in providers:
                 st.caption(f"{'● Ключ задан' if provider.api_key else '○ Нет ключа'} · {provider.name}")
-            st.caption("Ключи читаются из .env. Отчеты запускаются только по кнопке; запросы могут быть платными.")
-            st.code("OPENAI_API_KEY=…\nNVIDIA_API_KEY=…", language="dotenv")
-            st.caption("После изменения .env нажмите кнопку обновления.")
-            st.button("Обновить подключение", width="stretch")
+            st.caption("Ключ читается на сервере. Отчет запускается только по кнопке; запрос может быть платным.")
+            st.code("OPENAI_API_KEY=…", language="dotenv")
+            st.caption("После изменения .env перезапустите приложение. Переменная окружения имеет приоритет.")
         st.caption("План → расчет → AI-разбор. Синтетические данные HackAlem AI.")
     return mode, allocations, decisions, errors
+
+
+def render_city_baseline() -> None:
+    st.markdown('<div class="section-kicker">ПЕРЕД ПЕРВЫМ РЕШЕНИЕМ / ИСХОДНАЯ СИТУАЦИЯ</div>', unsafe_allow_html=True)
+    st.subheader("Текущее состояние города и дефициты")
+    st.caption(f"Учебный датасет до ваших решений · базовый Score {number(BASELINE.total)} / 100. "
+               "Это синтетические показатели, а не оперативные сведения о реальной Астане.")
+
+    def indicator_cell(row: dict, codes: tuple[str, ...]) -> str:
+        code = min(codes, key=lambda key: row[key])
+        value = row[code]
+        level = "critical" if value < 40 else "deficit" if value < 50 else "stable"
+        return (f'<td><span class="baseline-value {level}">{value:g}</span>'
+                f'<small>{escape(INDICATOR_NAMES[code])}</small></td>')
+
+    rows = []
+    for name, row in BASE.items():
+        rows.append(f'<tr><th scope="row">{escape(name)}</th>'
+                    + indicator_cell(row, ("T1", "T2"))
+                    + indicator_cell(row, ("E1",))
+                    + indicator_cell(row, ("S1", "S2")) + '</tr>')
+    st.markdown('<div class="baseline-table"><table><thead><tr><th>Район</th>'
+                '<th>Транспорт</th><th>Зеленые зоны</th><th>Соцобъекты</th></tr></thead>'
+                '<tbody>' + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
+    st.caption("Шкала 0–100: больше — лучше. В транспорте и соцсфере показан слабейший показатель. "
+               "Ниже 40 — критично; 40–49 — дефицит для стартовой диагностики; от 50 — наблюдение. "
+               "Порог 50 не меняет формулу Score.")
+    with st.container(border=True, key="starting_advice"):
+        st.markdown("**С чего начать акиму**")
+        st.markdown(
+            f"- **Нура — первый приоритет:** поликлиники {BASE['Нура']['S2']}, школы и детсады {BASE['Нура']['S1']}, "
+            f"общественный транспорт {BASE['Нура']['T2']}. Рассмотрите M7/M8 и улучшение автобусного сообщения M1.\n"
+            f"- **Есиль и Алматы — транспорт:** разгрузка дорог {BASE['Есиль']['T1']} и {BASE['Алматы']['T1']}. "
+            f"Сравните M1 и городскую M2; в Есиле также обратите внимание на школы ({BASE['Есиль']['S1']}).\n"
+            f"- **Сарыарка — зеленые зоны:** озеленение {BASE['Сарыарка']['E1']}, качество воздуха {BASE['Сарыарка']['E2']}. "
+            "Сравните парк M4 и экологические меры M5/M6.\n"
+            f"- **Байконур — наблюдение:** в этих трех направлениях нет значений ниже 50; "
+            f"проверьте безопасность улиц ({BASE['Байконур']['B1']}) перед выбором M10."
+        )
+        st.caption("Это направления для сравнения, а не готовый набор: выберите ровно пять мер в пределах 1 млрд ₸ и проверьте совместимость. Начальные рекомендации не требуют API.")
 
 
 def render_hero() -> None:
@@ -287,9 +326,9 @@ def methodology(scenario: Scenario, is_preview: bool = False) -> None:
 
 
 def ai_section(scenario: Scenario, providers: list) -> dict:
-    st.markdown('<div class="section-kicker">02 — ПОСМОТРИТЕ НА РЕШЕНИЕ ГЛАЗАМИ ЭКСПЕРТОВ</div>', unsafe_allow_html=True)
-    st.subheader("Два AI-советника. Один сценарий.")
-    st.caption("Урбанист объясняет компромиссы. Инфраструктурный аналитик проверяет риски районов. Оба получают один и тот же расчет.")
+    st.markdown('<div class="section-kicker">02 — ЭКСПЕРТНЫЙ РАЗБОР</div>', unsafe_allow_html=True)
+    st.subheader("AI-советник акима · OpenAI")
+    st.caption("Урбанист объясняет сильные стороны, скрытые риски и компромиссы вашего сценария на основе расчета.")
     identity = scenario.fingerprint + "|" + "|".join(p.model for p in providers)
     stored = st.session_state.get("ai_run", {})
     reports = stored.get("reports", {}) if stored.get("identity") == identity else {}
@@ -297,9 +336,9 @@ def ai_section(scenario: Scenario, providers: list) -> dict:
         st.info("Сценарий изменен. Предыдущий AI-отчет скрыт; создайте новый для текущего бюджета.")
     pending = [p for p in providers if p.api_key and (p.name not in reports or not reports[p.name].ok)]
     complete = all(p.name in reports and reports[p.name].ok for p in providers)
-    button_label = "AI-разбор готов" if complete else ("Повторить недоступные AI-отчеты" if reports else "Получить AI-разбор")
+    button_label = "AI-разбор готов" if complete else ("Повторить AI-разбор" if reports else "Получить AI-разбор")
     if st.button(button_label, type="primary", disabled=not pending, key="run_ai"):
-        with st.status("Два сервиса анализируют сценарий…", expanded=True) as status:
+        with st.status("OpenAI анализирует сценарий…", expanded=True) as status:
             st.write("Отправлен расчет текущего сценария. Ожидание — до 55 секунд.")
             received = asyncio.run(generate_reports(pending, scenario.payload()))
             reports = {**reports, **received}
@@ -307,14 +346,12 @@ def ai_section(scenario: Scenario, providers: list) -> dict:
             if all(report.ok for report in received.values()):
                 status.update(label="AI-анализ завершен", state="complete", expanded=False)
             else:
-                status.update(label="Часть AI-отчетов недоступна; расчет сохранен", state="error", expanded=False)
+                status.update(label="AI-отчет недоступен; расчет сохранен", state="error", expanded=False)
     if not any(p.api_key for p in providers):
-        st.info("Для AI-отчетов добавьте OPENAI_API_KEY и NVIDIA_API_KEY в .env. Расчетная модель уже работает.")
-    columns = st.columns(2, gap="large")
-    for column, provider in zip(columns, providers):
-        with column, st.container(border=True):
-            role = "Эксперт-урбанист" if provider.name == "OpenAI" else "Риски инфраструктуры"
-            st.markdown(f'<div class="provider"><strong>{role}</strong><span>{provider.name}</span></div>', unsafe_allow_html=True)
+        st.info("Для AI-отчета добавьте OPENAI_API_KEY в .env и перезапустите приложение. Расчетная модель уже работает.")
+    for provider in providers:
+        with st.container(border=True):
+            st.markdown(f'<div class="provider"><strong>Эксперт-урбанист</strong><span>{provider.name}</span></div>', unsafe_allow_html=True)
             st.caption(provider.model)
             report = reports.get(provider.name)
             if report and report.ok:
@@ -328,7 +365,7 @@ def ai_section(scenario: Scenario, providers: list) -> dict:
                 st.caption("Ключ не задан. Экспертный отчет появится после подключения API.")
             else:
                 st.caption("Готов к запросу. Нажмите «Получить AI-разбор».")
-    st.caption("AI-выводы могут содержать ошибки. Проверяйте их по расчетам во вкладке «Районы». Повторный запуск страницы не отправляет запросы; повторяются только неудачные отчеты.")
+    st.caption("AI-выводы могут содержать ошибки. Проверяйте их по расчетам во вкладке «Районы и результат». Пересчет страницы не отправляет запросы; повтор доступен после ошибки.")
     return reports
 
 
@@ -336,6 +373,7 @@ def main() -> None:
     initialize()
     providers = load_providers()
     mode, allocations, decisions, errors = sidebar(providers)
+    render_city_baseline()
     render_hero()
     catalogue_mode = mode == "Каталог мероприятий"
     scenario = None

@@ -1,4 +1,4 @@
-"""Two independent API requests; only explicit UI actions call this module.
+"""OpenAI urbanist report; only explicit UI actions call this module.
 
 The deterministic calculation remains authoritative. Credentials never enter
 scenario payloads, exports, session caches, logs, or exception messages.
@@ -9,10 +9,9 @@ from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
-import re
 from time import monotonic
 
-from dotenv import dotenv_values
+from dotenv import load_dotenv
 from openai import (
     APIConnectionError, APIError, APIStatusError, APITimeoutError,
     AsyncOpenAI, AuthenticationError, PermissionDeniedError, RateLimitError,
@@ -20,8 +19,6 @@ from openai import (
 
 ROOT = Path(__file__).resolve().parents[1]
 OPENAI_MODEL = "gpt-4o-mini"
-NVIDIA_MODEL = "nvidia/nemotron-3-super-120b-a12b"
-NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEADLINE_SECONDS = 55.0
 
 
@@ -48,20 +45,12 @@ class AIReport:
 
 
 def load_providers() -> list[Provider]:
-    # Read the project's file on each rerun; environment variables take precedence.
-    values = {**dotenv_values(ROOT / ".env"), **os.environ}
-
-    def key(name: str) -> str:
-        value = (values.get(name) or "").strip()
-        if value.lower() in {"", "your_key_here", "replace_me", "sk-...", "nvapi-..."}:
-            return ""
-        return value
-
-    return [
-        Provider("OpenAI", OPENAI_MODEL, key("OPENAI_API_KEY")),
-        Provider("NVIDIA", (values.get("NVIDIA_MODEL") or "").strip() or NVIDIA_MODEL,
-                 key("NVIDIA_API_KEY"), NVIDIA_BASE_URL),
-    ]
+    # Only this project's .env is loaded; deployment environment takes priority.
+    load_dotenv(ROOT / ".env", override=False, interpolate=False)
+    value = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if value.lower() in {"", "your_key_here", "replace_me", "sk-..."}:
+        value = ""
+    return [Provider("OpenAI", OPENAI_MODEL, value)]
 
 
 COMMON_PROMPT = """Ты эксперт учебного AI-симулятора «Аким на 5 часов».
@@ -81,30 +70,20 @@ URBANIST_PROMPT = """Подготовь краткий экспертный от
 включая разрыв между районами, и привяжи выводы к данным. Не называй сценарий
 оптимальным без сравнения. В вердикте приведи переданный итоговый Score.
 """
-RISK_PROMPT = """Дай независимую экспресс-оценку инфраструктурных рисков (до 300 слов).
-Для КАЖДОГО из пяти районов укажи оставшийся риск, его приоритет и одно действие.
-Указывай, какой показатель служит основанием. Приоритет — твоя качественная оценка,
-не вычисленный индекс. Затем назови два главных риска всего сценария. В режиме
-мероприятий учитывай лаги, отрицательные эффекты и ограничения каталога.
-"""
 
 
 async def _request(provider: Provider, payload: dict) -> tuple[str, str]:
-    prompt = URBANIST_PROMPT if provider.name == "OpenAI" else RISK_PROMPT
     kwargs = {
         "model": provider.model,
         "messages": [
-            {"role": "system", "content": COMMON_PROMPT + prompt},
+            {"role": "system", "content": COMMON_PROMPT + URBANIST_PROMPT},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         "stream": False,
+        "temperature": .35,
+        "max_completion_tokens": 1800,
+        "store": False,
     }
-    if provider.name == "OpenAI":
-        kwargs.update(temperature=.35, max_completion_tokens=1800, store=False)
-    else:
-        kwargs.update(temperature=1.0, max_tokens=1800)
-        if provider.model == NVIDIA_MODEL:
-            kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
     async with AsyncOpenAI(
         api_key=provider.api_key, base_url=provider.base_url,
         timeout=25.0, max_retries=1,
@@ -118,10 +97,7 @@ async def _request(provider: Provider, payload: dict) -> tuple[str, str]:
     content = choice.message.content
     if not isinstance(content, str) or not content.strip():
         raise ValueError("empty content")
-    # Some compatible models include a reasoning block in content.
-    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-    if not content:
-        raise ValueError("empty answer")
+    content = content.strip()
     warning = "Ответ сокращен по лимиту длины." if choice.finish_reason == "length" else ""
     return content, warning
 
@@ -163,5 +139,7 @@ async def assess(provider: Provider, payload: dict) -> AIReport:
 
 
 async def generate_reports(providers: list[Provider], payload: dict) -> dict[str, AIReport]:
-    reports = await asyncio.gather(*(assess(provider, payload) for provider in providers))
-    return {report.provider: report for report in reports}
+    if len(providers) != 1 or providers[0].name != "OpenAI":
+        raise ValueError("Exactly one OpenAI provider is required")
+    report = await assess(providers[0], payload)
+    return {report.provider: report}

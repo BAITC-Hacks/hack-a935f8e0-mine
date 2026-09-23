@@ -1,4 +1,5 @@
 streamlit==1.64.0
+# OpenAI SDK and local environment configuration
 openai==3.19.0
 python-dotenv==1.2.3
 plotly==7.1.0

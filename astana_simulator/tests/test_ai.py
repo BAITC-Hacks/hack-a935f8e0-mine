@@ -22,36 +22,29 @@ def completion(text="Проверенный ответ", reason="stop"):
             "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": reason}]}
 
 
-def test_real_sdk_payloads_and_concurrent_requests(monkeypatch):
+def test_real_sdk_sends_one_openai_request(monkeypatch):
     seen = []
 
     async def run():
-        both_started = asyncio.Event()
-
         async def handler(request):
             seen.append((str(request.url), json.loads(request.content)))
-            if len(seen) == 2:
-                both_started.set()
-            await asyncio.wait_for(both_started.wait(), timeout=2)
             return httpx2.Response(200, json=completion())
 
         install_transport(monkeypatch, handler)
         return await ai.generate_reports([
             Provider("OpenAI", ai.OPENAI_MODEL, "test-key"),
-            Provider("NVIDIA", ai.NVIDIA_MODEL, "test-key", ai.NVIDIA_BASE_URL),
         ], {"score": 56.5})
 
     result = asyncio.run(run())
     assert all(r.ok for r in result.values())
+    assert list(result) == ["OpenAI"]
+    assert len(seen) == 1
     requests = {body["model"]: (url, body) for url, body in seen}
     url, body = requests[ai.OPENAI_MODEL]
     assert url == "https://api.openai.com/v1/chat/completions"
     assert body["max_completion_tokens"] == 1800
     assert body["store"] is False
-    url, body = requests[ai.NVIDIA_MODEL]
-    assert url == ai.NVIDIA_BASE_URL + "/chat/completions"
-    assert body["chat_template_kwargs"]["enable_thinking"] is False
-    assert body["max_tokens"] == 1800
+    assert "test-key" not in json.dumps(body)
 
 
 @pytest.mark.parametrize("status,word", [(401, "Ключ"), (403, "Ключ"), (429, "лимит"),
@@ -67,20 +60,19 @@ def test_safe_api_errors(monkeypatch, status, word):
     assert "private-key" not in repr(result)
 
 
-def test_timeout_does_not_cancel_other_provider(monkeypatch):
+def test_openai_deadline_returns_safe_error(monkeypatch):
     monkeypatch.setattr(ai, "DEADLINE_SECONDS", .1)
 
     async def request(provider, payload):
-        if provider.name == "NVIDIA":
-            await asyncio.sleep(10)
+        await asyncio.sleep(10)
         return "Отчет урбаниста", ""
 
     monkeypatch.setattr(ai, "_request", request)
     result = asyncio.run(ai.generate_reports([
-        Provider("OpenAI", ai.OPENAI_MODEL, "test"), Provider("NVIDIA", ai.NVIDIA_MODEL, "test"),
+        Provider("OpenAI", ai.OPENAI_MODEL, "test"),
     ], {}))
-    assert result["OpenAI"].ok
-    assert "вовремя" in result["NVIDIA"].error
+    assert not result["OpenAI"].ok
+    assert "вовремя" in result["OpenAI"].error
 
 
 def test_missing_keys_never_make_network_requests(monkeypatch):
@@ -116,15 +108,24 @@ def test_network_errors_are_actionable(monkeypatch, error, word):
     assert "private" not in result.error
 
 
-def test_settings_refresh_and_no_secret_repr(monkeypatch, tmp_path):
+def test_dotenv_environment_priority_and_no_secret_repr(monkeypatch, tmp_path):
     monkeypatch.setattr(ai, "ROOT", tmp_path)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
-    (tmp_path / ".env").write_text("OPENAI_API_KEY=file-secret\nNVIDIA_API_KEY=nv-secret\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("OPENAI_API_KEY=file-secret\n", encoding="utf-8")
     providers = ai.load_providers()
     assert providers[0].api_key == "file-secret"
+    assert len(providers) == 1
+    assert ai.os.getenv("OPENAI_API_KEY") == "file-secret"
     assert "secret" not in repr(providers)
     (tmp_path / ".env").write_text("OPENAI_API_KEY=updated-secret\n", encoding="utf-8")
-    assert ai.load_providers()[0].api_key == "updated-secret"
+    assert ai.load_providers()[0].api_key == "file-secret"
     monkeypatch.setenv("OPENAI_API_KEY", "env-secret")
     assert ai.load_providers()[0].api_key == "env-secret"
+
+
+def test_missing_file_and_placeholder_are_not_credentials(monkeypatch, tmp_path):
+    monkeypatch.setattr(ai, "ROOT", tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert not ai.load_providers()[0].api_key
+    monkeypatch.setenv("OPENAI_API_KEY", "your_key_here")
+    assert not ai.load_providers()[0].api_key

@@ -2,9 +2,13 @@
 __pycache__/
 .pytest_cache/
 *.py[cod]
+# Local API credentials and backups (only the empty example is versioned)
 .env
+.envrc
+*.env
 .env.*
 !.env.example
 .streamlit/secrets.toml
+secrets.toml
 *.log
 artifacts/

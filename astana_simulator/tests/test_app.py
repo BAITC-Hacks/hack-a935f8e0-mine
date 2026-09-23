@@ -19,7 +19,6 @@ def isolated_ai(monkeypatch):
     # Tests must never consume user credits, even when .env contains real keys.
     monkeypatch.setattr(ai, "load_providers", lambda: [
         Provider("OpenAI", ai.OPENAI_MODEL, ""),
-        Provider("NVIDIA", ai.NVIDIA_MODEL, "", ai.NVIDIA_BASE_URL),
     ])
 
 
@@ -69,7 +68,7 @@ def test_official_example_and_sixth_measure_blocked():
 def test_ai_is_explicit_cached_and_invalidated_on_change(monkeypatch):
     calls = []
     monkeypatch.setattr(ai, "load_providers", lambda: [
-        Provider("OpenAI", ai.OPENAI_MODEL, "test"), Provider("NVIDIA", ai.NVIDIA_MODEL, "test"),
+        Provider("OpenAI", ai.OPENAI_MODEL, "test"),
     ])
 
     async def reports(providers, payload):
@@ -93,17 +92,17 @@ def test_ai_is_explicit_cached_and_invalidated_on_change(monkeypatch):
     assert len(calls) == 1
 
 
-def test_partial_failure_retries_only_failed_provider(monkeypatch):
+def test_failed_openai_report_can_be_retried(monkeypatch):
     calls = []
     monkeypatch.setattr(ai, "load_providers", lambda: [
-        Provider("OpenAI", ai.OPENAI_MODEL, "test"), Provider("NVIDIA", ai.NVIDIA_MODEL, "test"),
+        Provider("OpenAI", ai.OPENAI_MODEL, "test"),
     ])
 
     async def reports(providers, payload):
         calls.append([p.name for p in providers])
         return {
             p.name: AIReport(p.name, p.model, text="Успешный отчет")
-            if p.name == "OpenAI" or len(calls) > 1
+            if len(calls) > 1
             else AIReport(p.name, p.model, error="Сервис временно недоступен")
             for p in providers
         }
@@ -115,5 +114,18 @@ def test_partial_failure_retries_only_failed_provider(monkeypatch):
     assert any("временно недоступен" in e.value for e in app.error)
     app.button(key="run_ai").click().run()
     assert not app.exception
-    assert calls == [["OpenAI", "NVIDIA"], ["NVIDIA"]]
+    assert calls == [["OpenAI"], ["OpenAI"]]
     assert not app.error
+
+
+@pytest.mark.parametrize("entry", ["app.py", "streamlit_app.py"])
+def test_city_baseline_is_first_and_independent_of_scenario(entry):
+    app = AppTest.from_file(str(Path(APP).with_name(entry))).run()
+    assert not app.exception
+    assert app.subheader[0].value == "Текущее состояние города и дефициты"
+    table = next(m.value for m in app.markdown if 'class="baseline-table"' in m.value)
+    assert all(name in table for name in ("Есиль", "Алматы", "Сарыарка", "Байконур", "Нура"))
+    assert 'critical">35' in table and 'deficit">42' in table
+    assert any("С чего начать акиму" in m.value for m in app.markdown)
+    app.button(key="load_example").click().run()
+    assert table == next(m.value for m in app.markdown if 'class="baseline-table"' in m.value)
