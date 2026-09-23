@@ -309,7 +309,8 @@ if "simulated_values" not in st.session_state:
     st.session_state.score = BASELINE_SCORE
     st.session_state.has_simulated = False
     st.session_state.simulation_number = 0
-st.session_state.setdefault("simulation_number", 0)
+if "simulation_number" not in st.session_state:
+    st.session_state.simulation_number = 0
 if st.session_state.get("has_simulated") and "previous_values" not in st.session_state:
     st.session_state.previous_values = _initial_indicators()
     st.session_state.previous_score = BASELINE_SCORE
