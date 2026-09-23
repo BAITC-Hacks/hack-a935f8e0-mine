@@ -95,7 +95,7 @@ def render_map(scenario: Scenario | None, *, catalogue_mode: bool) -> None:
         district_details(focused, indicators)
         if catalogue_mode:
             st.markdown(f"**Указы для района {focused}**")
-            st.markdown('<a class="shop-link" href="#decree-shop" target="_self">Открыть магазин указов ↓</a>', unsafe_allow_html=True)
+            st.button("Открыть каталог мероприятий →", key="open_catalogue", on_click=focus_district, args=(focused,), width="stretch")
             st.caption("Район уже выбран для новых указов. Принятые решения сохраняют адресатов.")
             district_measures = [d.measure_id for d in st.session_state["plan"] if d.district is not None]
             if district_measures:

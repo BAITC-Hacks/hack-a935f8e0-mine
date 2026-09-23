@@ -22,8 +22,8 @@ from src.model import (
 )
 from src.catalogue import initialize, load_example, remove_from_plan, render_catalogue, reset_plan
 from src.map_view import render_map
-from src.landing import render_district_briefing
-from src.game_ui import render_header, render_hud, render_launch, render_slots, render_district_cards
+from src.landing import render_landing, render_district_briefing
+from src.game_ui import render_hud, render_launch, render_slots, render_district_cards
 
 ROOT = Path(__file__).resolve().parent
 MODES = ["Каталог мероприятий", "Распределение бюджета"]
@@ -34,7 +34,8 @@ PRESETS = {
 }
 st.set_page_config(page_title="Аким на 5 часов · Astana Lab", page_icon="🏙️", layout="wide")
 st.markdown(f"<style>{(ROOT / 'assets/catalogue.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-st.markdown(f"<style>{(ROOT / 'assets/game.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+for stylesheet in ("game.css", "landing.css", "workspace.css"):
+    st.markdown(f"<style>{(ROOT / 'assets' / stylesheet).read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
 
 def number(value: float, digits: int = 2) -> str:
@@ -69,26 +70,31 @@ def show_chart(fig: go.Figure, key: str) -> None:
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False}, key=key)
 
 
+def open_planning() -> None:
+    st.session_state["workspace_view"] = "Планирование"
+
+
 def scenario_controls() -> tuple[str, dict, list[Decision], list[str]]:
-    with st.expander("⚙️ Режим и настройки сценария"):
-        mode = st.selectbox("Режим симуляции", MODES, key="mode")
+    with st.container(key="scenario_controls"):
+        mode = st.selectbox("Режим симуляции", MODES, key="mode", on_change=open_planning)
         allocations = {}
         decisions = []
         if mode == "Распределение бюджета":
-            st.caption("Дополнительная непрерывная модель · 5 направлений · шаг 1 монета")
+            st.caption("Дополнительный экспериментальный режим, не каталог хакатона · шаг 1 ед.")
             saved = st.session_state.setdefault("budget_plan", {s.key: 20 for s in SECTORS})
             for sector in SECTORS:
                 key = f"budget_{sector.key}"
                 if key not in st.session_state:
                     st.session_state[key] = saved[sector.key]
                 allocations[sector.key] = st.slider(sector.label, min_value=0, max_value=100, step=1,
-                                                   key=key, format="%d монет", help=sector.description) * UNIT
+                                                   key=key, format="%d ед.", help=sector.description) * UNIT
             st.session_state["budget_plan"] = {k: v // UNIT for k, v in allocations.items()}
             for col, preset in zip(st.columns(3), PRESETS):
                 with col:
                     st.button(preset, on_click=set_preset, args=(preset,), key=f"preset_{preset}", width="stretch")
             errors = validate_allocations(allocations)
         else:
+            st.caption("Основной режим хакатона: 14 мероприятий ниже. Выберите ровно 5, не более двух в одном направлении.")
             decisions = st.session_state["plan"]
             allocations = {s.key: 0 for s in SECTORS}
             for decision in decisions:
@@ -147,6 +153,7 @@ def render_city_baseline() -> None:
 
 def reset_scenario() -> None:
     reset_plan()
+    open_planning()
     st.session_state["mode"] = "Каталог мероприятий"
     st.session_state["budget_plan"] = {s.key: 20 for s in SECTORS}
     set_preset("Баланс")
@@ -332,7 +339,9 @@ def ai_section(scenario: Scenario, providers: list) -> dict:
 def main() -> None:
     initialize()
     providers = load_providers()
-    render_header(reset_scenario)
+    render_landing(reset_scenario)
+    st.markdown('<div id="scenario-builder" class="workspace-heading"><span>02 / КОНСТРУКТОР СЦЕНАРИЯ</span>'
+                '<h2>Куда направим <em>ресурсы?</em></h2><p>Пять решений, один бюджет. Каталог, карта и результат — в одной рабочей области.</p></div>', unsafe_allow_html=True)
     mode, allocations, decisions, errors = scenario_controls()
     catalogue_mode = mode == "Каталог мероприятий"
     scenario = None
@@ -348,14 +357,38 @@ def main() -> None:
         if error != "Нужно выбрать ровно 5 мероприятий.":
             st.error(error)
     render_launch(scenario, errors, catalogue_mode)
-    render_map(scenario, catalogue_mode=catalogue_mode)
-    render_district_cards(scenario)
-    if catalogue_mode:
-        render_slots(decisions)
-        render_catalogue(scenario)
+    views = st.tabs(["Планирование", "Карта Астаны", "Результаты"], key="workspace_view", on_change="rerun")
+    with views[0]:
+        if catalogue_mode:
+            with st.container(key="catalogue_workspace"):
+                catalogue, plan = st.columns([2, 1], gap="large")
+                with catalogue:
+                    render_catalogue(scenario, column_count=2)
+                with plan, st.container(border=True, key="action_plan"):
+                    st.markdown("### План действий")
+                    st.metric("Остаток бюджета", f"{(BUDGET-sum(allocations.values()))//UNIT} ед.")
+                    st.progress(min(sum(allocations.values()) / BUDGET, 1.0))
+                    render_slots(decisions, compact=True)
+        elif scenario:
+            st.info("Выбран режим распределения: измените пять слайдеров над вкладками. Каталог доступен в режиме «Каталог мероприятий».")
+            overview(scenario, key_prefix="allocation")
+        else:
+            st.warning("Уменьшите расходы в слайдерах: расчёт заблокирован.")
+    with views[1]:
+        render_map(scenario, catalogue_mode=catalogue_mode)
+        render_district_cards(scenario)
     baseline = Scenario("measures" if catalogue_mode else "allocation", {s.key: 0 for s in SECTORS}, [],
                         {d: dict(row) for d, row in BASE.items()}, BASELINE, [], [])
-    with st.expander("📈 Результаты и методика"):
+    with views[2]:
+        if scenario:
+            score = scenario.score
+            st.subheader("Из чего складывается Score")
+            st.markdown(f"**{number(score.total)} / 100** = 0,7 × {number(score.average)} (средний районный балл) "
+                        f"+ 0,3 × {number(score.minimum)} (слабейший район: {score.weakest}) "
+                        f"− {len(score.critical)} (показатели ниже 40).")
+            st.caption("Для чтения числа округлены. Калькулятор использует полную точность; итог ограничен шкалой 0–100.")
+        else:
+            st.info("Итоговый Score пока не рассчитан. Завершите допустимый план; ниже — исходные показатели.")
         tabs = st.tabs(["Районы и результат", "Методика", "Исходное состояние"])
         with tabs[0]:
             if scenario:

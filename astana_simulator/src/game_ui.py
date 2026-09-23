@@ -46,10 +46,10 @@ def render_hud(scenario, spent, count, catalogue_mode):
     if scenario and st.session_state.get("launched_fingerprint") == scenario.fingerprint:
         label = "Симуляция завершена"
     cells = [
-        ("gold", "🪙 КАЗНА ГОРОДА", f"{(BUDGET-spent)/UNIT:g}", "монет доступно", f"Потрачено {spent/UNIT:g} из {BUDGET/UNIT:g}", spent / BUDGET),
-        ("violet", "💜 ОДОБРЕНИЕ ЖИТЕЛЕЙ", f"{score.total:.2f}".replace(".", ","), "QoL Score / 100", f"{label} · {delta:+.2f} к базе", score.total / 100),
-        ("cyan", "📜 ВАШИ УКАЗЫ" if catalogue_mode else "🎚️ НАПРАВЛЕНИЯ", str(count), "из 5 решений", "Не более двух в направлении" if catalogue_mode else "Дополнительная модель бюджета", count / 5),
-        ("red" if score.critical else "cyan", "🚨 ГОРОДСКИЕ ВЫЗОВЫ", str(len(score.critical)), "критических показателей", "Порог < 40 · штраф учтён в Score", len(score.critical) / 50),
+        ("gold", "БЮДЖЕТ ГОРОДА", f"{(BUDGET-spent)/UNIT:g}", "ед. доступно", f"Потрачено {spent/UNIT:g} из {BUDGET/UNIT:g}", spent / BUDGET),
+        ("violet", "КАЧЕСТВО ЖИЗНИ", f"{score.total:.2f}".replace(".", ","), "QoL Score / 100", f"{label} · {delta:+.2f} к базе", score.total / 100),
+        ("cyan", "ПРИНЯТО РЕШЕНИЙ" if catalogue_mode else "НАПРАВЛЕНИЯ", str(count), "из 5 решений", "Не более двух в направлении" if catalogue_mode else "Дополнительная модель бюджета", count / 5),
+        ("red" if score.critical else "cyan", "КРИТИЧЕСКИЕ ПОКАЗАТЕЛИ", str(len(score.critical)), "критических показателей", "Порог < 40 · штраф учтён в Score", len(score.critical) / 50),
     ]
     html = '<div class="game-hud">'
     for tone, title, value, unit, note, progress in cells:
@@ -58,7 +58,7 @@ def render_hud(scenario, spent, count, catalogue_mode):
                  f'<div class="hud-track" role="progressbar" aria-label="{escape(title)}" aria-valuenow="{max(0,min(100,progress*100)):.0f}" aria-valuemin="0" aria-valuemax="100">'
                  f'<i style="width:{max(0,min(100,progress*100)):.1f}%"></i></div></article>')
     st.markdown(html + '</div>', unsafe_allow_html=True)
-    st.caption("🪙 1 монета = 1 условная единица кейса. Одобрение — игровое название QoL Score, не опрос жителей.")
+    st.caption("Бюджет — 100 условных единиц. Прогноз доступен для допустимого плана; исходный рейтинг не является результатом незавершённого сценария.")
 
 
 def launch_simulation():
@@ -121,11 +121,11 @@ def render_district_cards(scenario):
                           key=f"focus_{name}", on_click=focus_district, args=(name,), width="stretch")
 
 
-def render_slots(plan):
-    st.subheader("📜 Пять указов акима")
+def render_slots(plan, compact=False):
+    st.caption("Пять решений · горизонт 8 кварталов")
     st.caption("Соберите план. Удаление указа возвращает его стоимость в доступный бюджет.")
     with st.container(key="decree_slots"):
-        columns = st.columns(5, gap="small")
+        columns = [st.container() for _ in range(5)] if compact else st.columns(5, gap="small")
         for i, col in enumerate(columns):
             with col, st.container(border=True):
                 if i < len(plan):
@@ -133,7 +133,7 @@ def render_slots(plan):
                     measure = MEASURE_BY_ID[decision.measure_id]
                     st.markdown(f'<div class="decree-slot filled"><small>СЛОТ {i+1:02d} / ПРИНЯТ</small>'
                                 f'<span>{ICONS[measure.sector]}</span><strong>{escape(measure.name)}</strong>'
-                                f'<p>{escape(decision.district or "Весь город")} · 🪙 {measure.units}</p></div>', unsafe_allow_html=True)
+                                f'<p>{escape(decision.district or "Весь город")} · {measure.units} ед.</p></div>', unsafe_allow_html=True)
                     st.button("Убрать указ", key=f"remove_{measure.id}", on_click=remove_from_plan,
                               args=(measure.id,), width="stretch")
                 else:
