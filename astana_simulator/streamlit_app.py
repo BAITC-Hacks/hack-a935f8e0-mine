@@ -74,6 +74,11 @@ def open_planning() -> None:
     st.session_state["workspace_view"] = "Планирование"
 
 
+def open_catalogue() -> None:
+    st.session_state["mode"] = "Каталог мероприятий"
+    open_planning()
+
+
 def scenario_controls() -> tuple[str, dict, list[Decision], list[str]]:
     with st.container(key="scenario_controls"):
         mode = st.selectbox("Режим симуляции", MODES, key="mode", on_change=open_planning)
@@ -102,10 +107,19 @@ def scenario_controls() -> tuple[str, dict, list[Decision], list[str]]:
                 allocations[measure.sector] += measure.cost
             errors = validate_decisions(decisions)
         a, b = st.columns(2)
-        with a:
-            st.button("Загрузить пример", on_click=load_example, key="load_example", width="stretch")
-        with b:
-            st.button("Сбросить план", on_click=reset_plan, key="reset_plan", disabled=not st.session_state["plan"], width="stretch")
+        if mode == "Каталог мероприятий":
+            with a:
+                st.button("Загрузить пример", on_click=load_example, key="load_example", width="stretch")
+            with b:
+                st.button("Сбросить план", on_click=reset_plan, key="reset_plan",
+                          disabled=not st.session_state["plan"], width="stretch")
+        else:
+            with a:
+                st.button("Сбросить распределение", on_click=set_preset, args=("Баланс",),
+                          key="reset_allocation", width="stretch")
+            with b:
+                st.button("Открыть каталог мероприятий →", on_click=open_catalogue,
+                          key="open_catalogue_mode", width="stretch")
     return mode, allocations, decisions, errors
 
 
