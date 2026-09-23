@@ -36,6 +36,7 @@ def initialize() -> None:
 def focus_district(name: str) -> None:
     if name not in BASE:
         return
+    st.session_state["workspace_view"] = "Планирование"
     st.session_state["focused_district"] = name
     st.session_state["district_picker"] = name
     selected = {d.measure_id for d in st.session_state.get("plan", [])}
@@ -107,9 +108,9 @@ def move_to_focused(measure_id: str) -> None:
         st.session_state["planner_notice"] = str(exc)
 
 
-def render_catalogue(scenario=None) -> None:
+def render_catalogue(scenario=None, column_count=3) -> None:
     icons = {"transport": "🚎", "green": "🌳", "social": "🏫", "safety": "🛡️", "services": "⚡"}
-    st.markdown('<div id="decree-shop" class="shop-title"><span>КОЛЛЕКЦИЯ / 14 УКАЗОВ</span><h2>🏛️ Магазин указов</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div id="decree-shop" class="shop-title"><span>ВЫБЕРИТЕ ПЯТЬ РЕШЕНИЙ</span><h2>Каталог мероприятий</h2></div>', unsafe_allow_html=True)
     st.info(f"📍 Управление: {st.session_state['focused_district']}. Район выбран на карте или карточке. "
             "Для каждого районного указа проверьте адресата перед применением.")
     filters = {"Все": None, **{s.short: s.key for s in SECTORS}}
@@ -119,16 +120,16 @@ def render_catalogue(scenario=None) -> None:
     contributions = {item["id"]: item for item in scenario.contributions} if scenario else {}
     shown = [m for m in MEASURES if active is None or m.sector == active]
     with st.container(key="decree_shop"):
-        for start in range(0, len(shown), 3):
-            columns = st.columns(3, gap="medium")
-            for col, measure in zip(columns, shown[start:start+3]):
+        for start in range(0, len(shown), column_count):
+            columns = st.columns(column_count, gap="medium")
+            for col, measure in zip(columns, shown[start:start+column_count]):
                 sector = SECTOR_BY_KEY[measure.sector]
                 is_selected = measure.id in selected
                 with col, st.container(border=True, key=f"card_{measure.id}"):
                     st.markdown(
                         f'<div class="action-head {"selected-head" if is_selected else ""}">'
                         f'<span class="decree-icon">{icons[measure.sector]}</span><b>{escape(sector.short.upper())}</b>'
-                        f'<span class="coin-price">🪙 {measure.units}</span></div>'
+                        f'<span class="coin-price">{measure.units} ед.</span></div>'
                         f'<div class="action-name">{escape(measure.name)}</div>'
                         f'<div class="action-desc">{"Один район" if measure.scope == "district" else "Весь город"} · '
                         f'лаг {measure.lag} кв. · горизонт {HORIZON} кв.</div>', unsafe_allow_html=True)
@@ -145,7 +146,7 @@ def render_catalogue(scenario=None) -> None:
                     else:
                         st.markdown('<div class="city-scope">🌐 Действует во всех пяти районах</div>', unsafe_allow_html=True)
                     with st.expander("Эффекты и детали"):
-                        st.caption(f"Код: {measure.id} · стоимость: {measure.units} монет · лаг: {measure.lag} кв.")
+                        st.caption(f"Код: {measure.id} · стоимость: {measure.units} ед. · лаг: {measure.lag} кв.")
                         st.caption("Плашки показывают полный эффект из каталога. Лаг, синергии и ограничение 0–100 учитываются калькулятором.")
                         if measure.id in contributions:
                             st.caption("Вклад из расчёта текущего плана с учётом лага, до синергий и ограничения шкалы:")

@@ -3,4 +3,5 @@ openai>=1.30
 folium>=0.17
 streamlit-folium>=0.22
 streamlit-lottie>=0.0.5
+-r astana_simulator/requirements.txt
 

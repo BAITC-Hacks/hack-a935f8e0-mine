@@ -119,10 +119,10 @@ def test_failed_openai_report_can_be_retried(monkeypatch):
 
 
 @pytest.mark.parametrize("entry", ["app.py", "streamlit_app.py"])
-def test_map_is_first_and_baseline_remains_independent_of_scenario(entry):
+def test_landing_and_baseline_remain_independent_of_scenario(entry):
     app = AppTest.from_file(str(Path(APP).with_name(entry))).run()
     assert not app.exception
-    assert app.subheader[0].value == "🛰️ Ситуационный центр"
+    assert any('<section class="city-hero">' in m.value for m in app.markdown)
     table = next(m.value for m in app.markdown if 'class="baseline-table"' in m.value)
     assert all(name in table for name in ("Есиль", "Алматы", "Сарыарка", "Байконур", "Нура"))
     assert 'critical">35' in table and 'deficit">42' in table
@@ -136,7 +136,7 @@ def test_hud_shows_100_coins_and_keeps_budget_scale():
     hud = next(m.value for m in app.markdown if '<div class="game-hud">' in m.value)
     assert 'Потрачено 0 из 100' in hud
     assert '52,56' in hud
-    assert 'монет доступно' in hud
+    assert 'ед. доступно' in hud
     assert not app.sidebar.children
     app.selectbox(key="mode").set_value("Распределение бюджета").run()
     assert all(s.value == 20 and s.max == 100 and s.step == 1 for s in app.slider)
@@ -156,3 +156,33 @@ def test_header_reset_clears_both_modes_and_reports():
     assert "ai_run" not in app.session_state
     app.selectbox(key="mode").set_value("Распределение бюджета").run()
     assert all(s.value == 20 for s in app.slider)
+
+
+def test_mode_switch_opens_planning_and_preserves_both_plans():
+    app = AppTest.from_file(APP).run()
+    app.button(key="add_M7").click().run()
+    app.session_state["workspace_view"] = "Карта Астаны"
+    app.selectbox(key="mode").set_value("Распределение бюджета").run()
+    assert not app.exception
+    assert app.session_state["workspace_view"] == "Планирование"
+    app.slider(key="budget_transport").set_value(18).run()
+    app.selectbox(key="mode").set_value("Каталог мероприятий").run()
+    assert app.session_state["workspace_view"] == "Планирование"
+    assert len([b for b in app.button if b.key and b.key.startswith("add_M")]) == 14
+    assert app.session_state["plan"][0].measure_id == "M7"
+    app.selectbox(key="mode").set_value("Распределение бюджета").run()
+    assert app.slider(key="budget_transport").value == 18
+
+
+def test_reference_hero_links_to_existing_constructor():
+    app = AppTest.from_file(APP).run()
+    html = "\n".join(m.value for m in app.markdown)
+    assert 'href="#scenario-builder"' in html and 'id="scenario-builder"' in html
+    assert '<strong>100<sub> ед.</sub>' in html
+    assert '<strong>52<em>.56</em>' in html
+    app.button(key="load_example").click().run()
+    from src.model import simulate_decisions, EXAMPLE
+    score = simulate_decisions(EXAMPLE).score
+    formula = next(m.value for m in app.markdown if "средний районный балл" in m.value)
+    assert f"{score.average:.2f}".replace(".", ",") in formula
+    assert f"{score.minimum:.2f}".replace(".", ",") in formula

@@ -1,0 +1,54 @@
+/* Editorial workspace based on the supplied local index.html. */
+:root { --paper:#f3f2ec; --ink:#182720; --green:#234b39; --line:#d9d9cf; }
+.stApp { background:#f3f2ec; background-image:none; color:#182720; }
+.block-container { max-width:1600px; padding:2.6rem 5.1vw 3rem; }
+h1,h2,h3 { color:#234b39; }
+.workspace-heading { margin-top:32px; border-top:0; }
+.workspace-heading h2 { font:54px/1.05 Georgia,serif; }
+.workspace-heading em { color:#708e5f; }
+[data-testid="stBaseButton-primary"] { background:#234b39; border-color:#234b39; box-shadow:none; }
+[data-testid="stBaseButton-primary"]:hover { background:#35654c; border-color:#35654c; }
+[data-testid="stBaseButton-secondary"] { background:#fbfbf7; border-color:#ccd3c5; color:#234b39; box-shadow:none; }
+[data-testid="stBaseButton-secondary"]:hover { background:#edf2e5; color:#234b39; border-color:#7b9770; }
+button:focus-visible,a:focus-visible { outline-color:#567a44!important; }
+[data-testid="stCaptionContainer"] { color:#667560; }
+.game-hud { gap:12px; margin-top:10px; }
+.hud-tile { --accent:#557747; color:#234b39; background:#f9faf4; border:1px solid #d7dfce; border-radius:5px; box-shadow:none; }
+.hud-tile:after { display:none; }.hud-tile.gold,.hud-tile.cyan { --accent:#557747; }
+.hud-tile.violet { --accent:#d3e4b8; background:#234b39; }
+.hud-tile.red { --accent:#ad6049; }.hud-label,.hud-unit,.hud-tile p { color:#64735c; }
+.hud-tile.violet .hud-label,.hud-tile.violet .hud-unit,.hud-tile.violet p { color:#cfdbbf; }
+.hud-track { background:#dbe2d3; }.hud-tile.violet .hud-track { background:#507254; }
+.hud-tile strong { font-weight:600; }.resident-feed { background:#e9efe1; border-color:#d4dfc8; color:#3b5934; }
+.st-key-action_plan { background:#e8eadf; border-color:#d5d9ca!important; border-radius:4px!important; }
+.st-key-action_plan [data-testid="stMetricValue"] { font-size:29px; }
+.st-key-action_plan .decree-slot { min-height:0; text-align:left; align-items:stretch; color:#67745e; }
+.st-key-action_plan .decree-slot>span { display:none; }
+.st-key-action_plan .decree-slot strong { color:#2e4831; margin-top:7px; font-size:12px; }
+.st-key-action_plan .decree-slot p { margin:5px 0; }
+.st-key-action_plan .decree-slot small { color:#64725b; }
+.st-key-action_plan [data-testid="stVerticalBlockBorderWrapper"] { background:transparent; }
+.shop-title { margin:0 0 8px; border:0; padding:0; }
+.shop-title h2 { font:32px Georgia,serif; color:#234b39; }.shop-title>span { color:#718167; }
+[class*="st-key-card_"] { background:#fbfcf7; border:1px solid #d8dfce!important; border-radius:5px!important; }
+[class*="st-key-card_"]:hover { transform:none; border-color:#91ab7b!important; }
+[class*="st-key-card_"]:has(.selected-head) { background:#edf3e5; border-color:#789866!important; }
+.action-name { color:#29412d; font-size:16px; font-weight:650; }.action-desc { color:#6f7c65; }
+.decree-icon { font-size:20px; }.action-head b { color:#5d7750; background:#edf2e5; }
+.coin-price { color:#36532c; background:transparent; border:0; font-size:16px; padding:0; }
+.effect { color:#486a3b; background:#edf4e4; border-color:#d8e5cd; font-size:10px; }
+.city-scope { color:#5d7550; background:#f0f4e8; border-color:#d8e1ce; }
+.st-key-decree_shop [data-testid="stExpander"] { background:#f6f8f0; }
+.district-focus { background:#e7eddf; border-color:#cbd8be; color:#25412e; }
+.district-focus h3,.district-focus strong { color:#2d5037; }.district-focus>span,.district-focus p,.district-focus small { color:#617858; }
+.district-mini>span,.district-mini strong { color:#2d4731; }.weak-stat { color:#596d50; }.critical-stat { color:#a63029; }
+.st-key-map_panel { background:#fbfcf7; border-color:#d2dec7!important; box-shadow:none; }
+.section-kicker,.map-attribution,.map-attribution a,.footer { color:#6c7b62; }
+@media(max-width:1100px) { .block-container { padding:2rem 2.5rem; }.hud-tile { padding:14px; } }
+@media(max-width:800px) {
+ .block-container { padding:1.5rem; }
+ .st-key-catalogue_workspace>[data-testid="stVerticalBlock"]>[data-testid="stHorizontalBlock"] { flex-wrap:wrap; }
+ .st-key-catalogue_workspace>[data-testid="stVerticalBlock"]>[data-testid="stHorizontalBlock"]>[data-testid="stColumn"] { width:100%!important; flex:1 1 100%!important; }
+ .workspace-heading h2 { font-size:40px; }
+}
+@media(max-width:480px) { .block-container { padding:1.3rem 1rem; }.hud-label { font-size:8px; } }
