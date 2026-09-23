@@ -81,10 +81,14 @@ st.markdown("""
 .hud{background:linear-gradient(150deg,#26394a,#192735);border:1px solid #486073;border-bottom:4px solid #b38b44;border-radius:15px;padding:10px 16px;min-height:91px;box-shadow:0 7px 15px #0004}
 .hud-label{color:#b9cbd0;font-weight:900;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}.hud-value{color:#fff2c6;font-size:1.7rem;font-weight:900;line-height:1.22}.hud-note{color:#a9bbc5;font-size:.77rem}
 .side-card{background:linear-gradient(155deg,#253a48,#172631);border:1px solid #49606b;border-radius:13px;padding:12px;margin:8px 0;color:#f1f5eb}
+.district-panel{background:linear-gradient(145deg,#203442,#14232e);border:1px solid #537080;border-radius:16px;padding:18px;margin:12px 0;color:#f1f5eb}
+.secretary{background:linear-gradient(120deg,#332c46,#1c2d3a);border:1px solid #71618f;border-radius:14px;padding:15px 18px;color:#f6efff;margin:8px 0 14px}
 .combo{background:linear-gradient(90deg,#594526,#382f25);border:1px solid #e5b84d;border-radius:12px;padding:12px 15px;color:#ffebaa;font-weight:900}
 div.stButton>button{border-radius:10px;font-weight:900;border:1px solid #728d80}
 div.stButton>button[kind="primary"]{background:linear-gradient(180deg,#86b853,#558d45);border:1px solid #b2d67d;color:#102013;min-height:2.8rem;box-shadow:0 4px 0 #385d34}
 [data-testid="stExpander"]{background:#172530;border:1px solid #405763;border-radius:11px}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 #91d36a88}50%{transform:scale(1.015);box-shadow:0 0 0 10px #91d36a00}}
+div.stButton>button[kind="primary"].launch-ready{animation:pulse 1.6s infinite}
 </style>
 """, unsafe_allow_html=True)
 
@@ -139,13 +143,13 @@ def _geojson(values: dict[str, dict[str, float]]) -> dict:
             issues = ["Критических показателей нет"]
         features.append({
             "type": "Feature",
-            "properties": {"district": district, "score": round(score, 1), "problems": "<br>".join(issues), "fill": _color(score)},
+            "properties": {"name": district, "district": district, "score": round(score, 1), "problems": "<br>".join(issues), "fill": _color(score)},
             "geometry": {"type": "Polygon", "coordinates": [ring]},
         })
     return {"type": "FeatureCollection", "features": features}
 
 
-def _render_map(values: dict[str, dict[str, float]], applied_decisions: list[dict[str, str]] | None = None) -> None:
+def _render_map(values: dict[str, dict[str, float]], applied_decisions: list[dict[str, str]] | None = None) -> dict:
     city_map = folium.Map(location=ASTANA_CENTER, zoom_start=11, tiles="CartoDB dark_matter", control_scale=True)
     folium.GeoJson(
         _geojson(values),
@@ -153,26 +157,32 @@ def _render_map(values: dict[str, dict[str, float]], applied_decisions: list[dic
         style_function=lambda feature: {"fillColor": feature["properties"]["fill"], "color": "#f2f5f5", "weight": 2, "fillOpacity": 0.56},
         highlight_function=lambda feature: {"weight": 4, "color": "#ffffff", "fillOpacity": 0.78},
         tooltip=folium.GeoJsonTooltip(
-            fields=["district", "score", "problems"],
+            fields=["name", "score", "problems"],
             aliases=["Район", "QoL Score", "Слабые места"],
             localize=True, sticky=False, labels=True,
             style="background-color:#17232d;color:#f5f5f5;font-family:Nunito,sans-serif;font-size:13px;padding:10px;border:1px solid #81919a;border-radius:8px;",
         ),
     ).add_to(city_map)
-    # City-wide initiatives receive one marker in each district; local measures
-    # are pinned to the center of the district they affect.
+    # Emoji building pins appear immediately at the affected district centroid.
     for decision in applied_decisions or []:
         measure_id = decision["measure"]
-        emoji, fa_icon, color = MEASURE_MARKERS[measure_id]
-        targets = [decision["district"]] if "district" in decision else list(DISTRICT_CENTERS)
+        emoji, _, _ = MEASURE_MARKERS[measure_id]
         title = MEASURE_CARDS[measure_id][1]
-        for district in targets:
-            folium.Marker(
-                location=DISTRICT_CENTERS[district],
-                tooltip=f"{emoji} {title} · {district}",
-                popup=f"{emoji} <b>{title}</b><br>{district}",
-                icon=folium.Icon(color=color, icon=fa_icon, prefix="fa"),
-            ).add_to(city_map)
+        is_city = MEASURES[measure_id]["type"] == "Город"
+        district = decision.get("district")
+        location = ASTANA_CENTER if is_city else DISTRICT_CENTERS[district]
+        place = "Акимат · весь город" if is_city else district
+        folium.Marker(
+            location=location,
+            tooltip=f"{emoji} {title} · {place}",
+            popup=f"{emoji} <b>{title}</b><br>{place}",
+            icon=folium.DivIcon(html=(
+                "<div style='font-size:28px;width:42px;height:42px;line-height:40px;text-align:center;"
+                "background:radial-gradient(circle at 35% 25%,#fff8,#263747 65%);border:2px solid #f2d27a;"
+                "border-radius:50%;filter:drop-shadow(0 5px 4px #000b);transform:translate(-21px,-21px)'>"
+                f"{emoji}</div>"
+            )),
+        ).add_to(city_map)
     folium.Marker(
         ASTANA_CENTER, tooltip="Ситуационный центр · Астана",
         icon=folium.DivIcon(html="<div style='font-size:24px;filter:drop-shadow(0 1px 4px #000)'>🏛️</div>"),
@@ -180,7 +190,56 @@ def _render_map(values: dict[str, dict[str, float]], applied_decisions: list[dic
     legend = """<div style="position:fixed;bottom:26px;left:26px;z-index:9999;background:#111d29ee;color:#f4f4f4;padding:11px 14px;border:1px solid #71808c;border-radius:9px;font:13px Nunito,sans-serif;box-shadow:0 2px 9px #0009">
     <b>Рейтинг района</b><br><span style="color:#ff6b65">■</span> Критично &lt; 50<br><span style="color:#f5cc56">■</span> Средне 50–60<br><span style="color:#68dc91">■</span> Хорошо &gt; 60</div>"""
     city_map.get_root().html.add_child(folium.Element(legend))
-    st_folium(city_map, use_container_width=True, height=590, returned_objects=[], key="astana_map")
+    return st_folium(
+        city_map, use_container_width=True, height=590,
+        returned_objects=["last_active_drawing", "last_clicked"], key="astana_map",
+    ) or {}
+
+
+def _point_in_ring(lon: float, lat: float, ring: list[list[float]]) -> bool:
+    inside = False
+    for index in range(len(ring) - 1):
+        x1, y1 = ring[index]
+        x2, y2 = ring[index + 1]
+        if (y1 > lat) != (y2 > lat):
+            crossing_lon = (x2 - x1) * (lat - y1) / (y2 - y1) + x1
+            if lon < crossing_lon:
+                inside = not inside
+    return inside
+
+
+def _map_region_from_event(map_state: dict) -> str | None:
+    drawing = map_state.get("last_active_drawing") or {}
+    props = drawing.get("properties") or {}
+    name = props.get("name") or props.get("district")
+    if name in DISTRICTS:
+        return name
+    clicked = map_state.get("last_clicked") or {}
+    lat, lon = clicked.get("lat"), clicked.get("lng")
+    if lat is None or lon is None:
+        return None
+    if abs(lat - ASTANA_CENTER[0]) < 0.006 and abs(lon - ASTANA_CENTER[1]) < 0.006:
+        return "Город"
+    for district, ring in DISTRICT_POLYGONS.items():
+        if _point_in_ring(float(lon), float(lat), ring):
+            return district
+    return None
+
+
+def _secretary_reaction(area: str) -> str:
+    if area == "Город":
+        return "Вы отметили ситуационный центр. Городские указы ставятся здесь и меняют показатели всех районов."
+    stats = st.session_state.simulated_values[area]
+    weakest = min(stats, key=stats.get)
+    icon, label = INDICATOR_INFO[weakest]
+    recommendation = {
+        "T1": "M1 — Автобусные полосы", "T2": "M3 — Построить ЛРТ",
+        "E1": "M4 — Парк или сквер", "E2": "M5 — Чистое топливо",
+        "S1": "M7 — Модульная школа", "S2": "M8 — Семейная клиника",
+        "B1": "M10 — Камеры Safe City", "B2": "M11 — Безопасные переходы",
+        "C1": "M13 — Новые сети ЖКХ", "C2": "M12 — Цифровая платформа",
+    }[weakest]
+    return f"Вы выбрали {area}. Самое слабое место — {icon} {label} ({stats[weakest]:.0f}). Советую присмотреться к карточке «{recommendation}»."
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -304,6 +363,12 @@ def _typewriter(text: str):
 
 if "decisions" not in st.session_state:
     st.session_state.decisions = []
+if "selected_area" not in st.session_state:
+    st.session_state.selected_area = None
+if "secretary_message" not in st.session_state:
+    st.session_state.secretary_message = "Кликните по району на карте, и я подскажу, с чего начать."
+if "last_map_event" not in st.session_state:
+    st.session_state.last_map_event = None
 if "simulated_values" not in st.session_state:
     st.session_state.simulated_values = _initial_indicators()
     st.session_state.score = BASELINE_SCORE
@@ -346,11 +411,70 @@ with edict_col:
 st.progress(spent / BUDGET, text=f"Бюджет · {spent} / {BUDGET} монет")
 
 st.subheader("🗺️ Карта Астаны · ситуационный центр")
-st.caption("Наведите курсор на район, чтобы увидеть QoL Score и критические проблемы. Границы на карте схематические.")
-_render_map(
+st.caption("Нажмите на район, чтобы открыть его указной совет. Наведение покажет QoL Score и критические проблемы. Границы схематические.")
+map_state = _render_map(
     st.session_state.simulated_values,
     decisions,
 )
+map_area = _map_region_from_event(map_state)
+if map_area:
+    clicked = map_state.get("last_clicked") or {}
+    drawing = map_state.get("last_active_drawing") or {}
+    signature = repr((map_area, clicked.get("lat"), clicked.get("lng"), drawing.get("properties")))
+    if signature != st.session_state.last_map_event:
+        st.session_state.selected_area = map_area
+        st.session_state.secretary_message = _secretary_reaction(map_area)
+        st.session_state.last_map_event = signature
+
+st.markdown(
+    f'<div class="secretary"><b>👩🏻‍💼 Секретарша Сауле</b><br>{st.session_state.secretary_message}</div>',
+    unsafe_allow_html=True,
+)
+
+if st.session_state.selected_area:
+    area = st.session_state.selected_area
+    heading = area.upper() if area != "Город" else "ВЕСЬ ГОРОД"
+    st.markdown(f'<div class="district-panel"><h3>🏛️ Управление районом: {heading}</h3></div>', unsafe_allow_html=True)
+    eligible = [mid for mid, meta in MEASURES.items() if meta["type"] == ("Город" if area == "Город" else "Район")]
+    with st.container(border=True):
+        measure_id = st.selectbox(
+            "Карточка указа", eligible, key=f"measure_for_{area}",
+            format_func=lambda mid: f"{MEASURE_CARDS[mid][0]} {MEASURE_CARDS[mid][1]} · {MEASURES[mid]['cost']} 🪙",
+        )
+        measure = MEASURES[measure_id]
+        icon, title, description = MEASURE_CARDS[measure_id]
+        lag_factor = (HORIZON - measure["lag"]) / HORIZON
+        effects = ", ".join(
+            f"{INDICATOR_INFO[code][0]} {INDICATOR_INFO[code][1]} {amount*lag_factor:+g}"
+            for code, amount in measure["effects"].items()
+        )
+        st.markdown(
+            f'<div class="side-card"><b>{icon} Указ: {title}</b><br><span style="color:#b2c3c5">{description}</span><br><br>'
+            f'💰 <b>{measure["cost"]} монет</b>　·　⏳ лаг {measure["lag"]} квартала<br>'
+            f'<span style="color:#b2c3c5">Эффект с учётом лага: {effects}</span></div>', unsafe_allow_html=True,
+        )
+        st.caption("Городской указ отмечается у Акимата в центре карты и действует во всех районах." if area == "Город" else f"Маркер указа появится в центре района {area} сразу после принятия.")
+        if st.button("📜 Применить указ к карте", type="primary", key=f"apply_{area}", use_container_width=True):
+            ok, message = _add_decision(measure_id, None if area == "Город" else area)
+            if ok:
+                st.session_state.secretary_message = f"Указ «{title}» добавлен на карту. Казна обновлена — осталось {BUDGET - sum(MEASURES[d['measure']]['cost'] for d in st.session_state.decisions)} монет."
+                st.toast(message, icon="📜")
+                st.rerun()
+            else:
+                st.error(message)
+
+if decisions:
+    st.markdown("### 📜 Указы, расставленные на карте")
+    plan_cols = st.columns(min(5, len(decisions)))
+    for index, item in enumerate(list(decisions)):
+        measure_key = item["measure"]
+        card_icon, card_name, _ = MEASURE_CARDS[measure_key]
+        place = item.get("district", "Акимат · весь город")
+        with plan_cols[index % len(plan_cols)]:
+            st.markdown(f'<div class="side-card"><b>{card_icon} {card_name}</b><br>{place}<br>💰 {MEASURES[measure_key]["cost"]} 🪙</div>', unsafe_allow_html=True)
+            if st.button("Убрать с карты", key=f"remove_{index}", use_container_width=True):
+                st.session_state.decisions.pop(index)
+                st.rerun()
 
 if st.session_state.has_simulated:
     st.subheader("📣 Live-реакции жителей")
@@ -372,51 +496,6 @@ if st.session_state.has_simulated:
             st.session_state.score - st.session_state.previous_score,
         )
 
-with st.sidebar:
-    st.title("📜 Каталог указов")
-    st.caption("Выбери инициативу, район и добавь её в городской план.")
-    measure_id = st.selectbox(
-        "Карточка мероприятия", list(MEASURES),
-        format_func=lambda item: f"{MEASURE_CARDS[item][0]} {MEASURE_CARDS[item][1]} · {MEASURES[item]['cost']} 🪙",
-    )
-    measure = MEASURES[measure_id]
-    icon, title, description = MEASURE_CARDS[measure_id]
-    lag_factor = (HORIZON - measure["lag"]) / HORIZON
-    effects = ", ".join(
-        f"{INDICATOR_INFO[code][0]} {INDICATOR_INFO[code][1]} {amount*lag_factor:+g}"
-        for code, amount in measure["effects"].items()
-    )
-    st.markdown(
-        f'<div class="side-card"><b>{icon} Указ: {title}</b><br><span style="color:#b2c3c5">{description}</span><br><br>'
-        f'💰 <b>{measure["cost"]} монет</b><br>⏳ Вступит в силу через {measure["lag"]} квартала<br>'
-        f'<span style="color:#b2c3c5">Эффект после лага: {effects}</span></div>', unsafe_allow_html=True,
-    )
-    district = st.selectbox("Выбери район", list(DISTRICTS)) if measure["type"] == "Район" else None
-    if measure["type"] == "Город":
-        st.info("Городская инициатива действует во всех пяти районах.")
-    if st.button("➕ Принять указ", type="primary", use_container_width=True):
-        ok, message = _add_decision(measure_id, district)
-        if ok:
-            st.toast(message, icon="📜")
-            st.rerun()
-        else:
-            st.error(message)
-
-    st.divider()
-    st.markdown("### Текущий план")
-    if not decisions:
-        st.caption("План пока пуст.")
-    for index, item in enumerate(list(decisions)):
-        measure_key = item["measure"]
-        card_icon, card_name, _ = MEASURE_CARDS[measure_key]
-        place = item.get("district", "Весь город")
-        with st.container(border=True):
-            st.markdown(f"**{card_icon} {card_name}**  \n{place} · {MEASURES[measure_key]['cost']} 🪙")
-            if st.button("Убрать", key=f"remove_{index}", use_container_width=True):
-                st.session_state.decisions.pop(index)
-                st.rerun()
-    st.progress(min(spent / BUDGET, 1.0), text=f"В казне осталось {BUDGET-spent} монет")
-
 if len(decisions) != 5:
     validation_error = f"Нужно принять ещё {5-len(decisions)} указ(а/ов)."
 else:
@@ -428,10 +507,17 @@ else:
 if validation_error:
     st.warning(f"🧭 До симуляции: {validation_error}")
 
-if st.button(
-    "⚡ Симулировать два года · 8 кварталов", type="primary",
-    use_container_width=True, disabled=bool(validation_error),
-):
+if len(decisions) == 5:
+    st.markdown('<style>div.stButton>button[kind="primary"]{animation:pulse 1.6s infinite}</style>', unsafe_allow_html=True)
+    launch_clicked = st.button(
+        "🚀 ЗАПУСТИТЬ СИМУЛЯЦИЮ", type="primary", key="launch_simulation",
+        use_container_width=True, disabled=bool(validation_error),
+    )
+else:
+    launch_clicked = False
+    st.caption("Когда на карте окажутся ровно пять указов, здесь появится кнопка запуска.")
+
+if launch_clicked:
     with st.status("Ситуационный центр рассчитывает сценарий…", expanded=True) as status:
         st.write("Применяем лаги мероприятий и фиксированные синергии")
         previous_values = st.session_state.simulated_values
