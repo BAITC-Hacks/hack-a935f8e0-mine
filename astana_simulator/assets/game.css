@@ -1,0 +1,72 @@
+/* City command interface. Reduced motion and keyboard focus remain supported. */
+:root { --ink:#172840; --muted:#53637a; --green:#245cba; --line:#cbd5e3; --paper:#edf2f8; }
+.stApp { background-color:var(--paper); background-image:radial-gradient(#cdd9e6 .7px,transparent .7px); background-size:20px 20px; color:var(--ink); }
+.block-container { max-width:1600px; padding:1.3rem 2.6rem 3rem; }
+h1,h2,h3 { font-family:Arial,sans-serif; color:var(--ink); letter-spacing:-.7px; }
+.game-brand { display:flex; align-items:center; gap:18px; margin-bottom:15px; }
+.game-emblem { display:grid; place-items:center; font-size:30px; width:60px; height:60px; border-radius:18px; background:#172840; box-shadow:0 5px 0 #93a6c1; }
+.game-brand small { color:#526882; font-size:10px; letter-spacing:2.5px; font-weight:800; }
+.game-brand h1 { font-size:clamp(26px,3vw,40px); margin:4px 0; padding:0; font-weight:850; }
+.game-brand p { color:#53637a; font-size:13px; margin:0; }
+.game-hud { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:15px; margin:7px 0 8px; }
+.hud-tile { --accent:#67dfd4; color:#f7faff; background:linear-gradient(135deg,#1d304e,#101e35); border:1px solid #344663; border-radius:17px; padding:14px 19px; box-shadow:0 5px 0 #bdc9da; position:relative; overflow:hidden; }
+.hud-tile:after { content:""; position:absolute; height:100px; width:100px; border:16px solid var(--accent); opacity:.035; border-radius:50%; top:-40px; right:-30px; pointer-events:none; }
+.hud-tile.gold { --accent:#ffce65; }.hud-tile.violet { --accent:#c9afff; }.hud-tile.red { --accent:#ffa498; }
+.hud-label { color:#d2dcec; letter-spacing:1px; font-size:10px; font-weight:750; }
+.hud-tile strong { color:var(--accent); display:inline-block; font-size:38px; font-weight:850; line-height:1.2; margin:6px 8px 0 0; letter-spacing:-1.5px; }
+.hud-unit { color:#c1cfe3; font-size:11px; display:block; }
+.hud-tile p { color:#c1cfe3; font-size:11px; min-height:26px; margin:7px 0 5px; line-height:1.45; }
+.hud-track { height:5px; background:#34435a; border-radius:8px; overflow:hidden; }
+.hud-track i { display:block; height:100%; background:var(--accent); border-radius:8px; transition:width .25s ease; }
+[data-testid="stCaptionContainer"] { color:#53637a; }
+[data-testid="stBaseButton-primary"] { background:#255eb6; border:1px solid #1e4f9c; box-shadow:0 3px 0 #183c78; border-radius:10px; font-weight:750; min-height:43px; }
+[data-testid="stBaseButton-primary"]:hover { background:#1e4e99; border-color:#183c78; }
+[data-testid="stBaseButton-secondary"] { border:1px solid #bfcce0; background:#fff; border-radius:10px; color:#233e65; box-shadow:0 2px 0 #d0dbea; }
+[data-testid="stBaseButton-secondary"]:hover { background:#eaf2ff; color:#174eac; border-color:#255eb6; }
+button:focus-visible,a:focus-visible { outline:3px solid #965fe4!important; outline-offset:3px; }
+.resident-feed { background:#e1eafc; color:#284875; border:1px solid #bccfed; border-radius:10px; padding:12px 16px; font-size:13px; margin:8px 0; }
+.section-kicker { font-size:10px; color:#566a85; letter-spacing:1.6px; font-weight:800; }
+.st-key-map_panel { background:#fff; border:1px solid #bfcee1!important; box-shadow:0 5px 0 #d4deea; border-radius:17px!important; padding:12px!important; }
+[data-testid="stDeckGlJsonChart"] { border-radius:11px; }
+.district-focus { background:linear-gradient(140deg,#203d5c,#142842); border:1px solid #354c68; color:white; padding:18px; border-radius:14px; margin:12px 0; }
+.district-focus>span { color:#bed0e4; font-size:10px; }.district-focus h3 { color:#f3f7ff; font-size:27px; }
+.district-focus strong { color:#8ce2d6; font-size:40px; font-weight:800; }.district-focus small,.district-focus p { color:#c8d8eb; }
+.shop-link { display:block; background:#255eb6; color:white!important; padding:11px 14px; border-radius:10px; text-decoration:none!important; font-size:13px; font-weight:700; }
+.map-attribution,.map-attribution a { color:#586c86; }
+.st-key-district_cards [data-testid="stVerticalBlockBorderWrapper"],.st-key-decree_slots [data-testid="stVerticalBlockBorderWrapper"] { background:#fff; border-radius:13px; }
+.district-mini { border-top:4px solid; padding-top:9px; margin-bottom:12px; }
+.district-mini>span { display:block; color:#344e70; font-size:14px; font-weight:800; }.district-mini strong { font-size:29px; color:#172d4e; }.district-mini small { font-size:10px; color:#526881; }
+.weak-stat { display:flex; align-items:start; gap:8px; justify-content:space-between; color:#485d78; font-size:11px; line-height:1.5; min-height:39px; padding:5px 0; border-bottom:1px solid #e9edf4; }
+.weak-stat b { white-space:nowrap; }.critical-stat { color:#a63029; font-weight:650; }
+.decree-slot { min-height:175px; display:flex; flex-direction:column; align-items:center; text-align:center; color:#637792; }
+.decree-slot small { font-size:8px; letter-spacing:1px; font-weight:800; }.decree-slot>span { font-size:28px; margin:14px 0 9px; }
+.decree-slot strong { font-size:12px; line-height:1.5; color:#3e5471; }.decree-slot p { font-size:10px; line-height:1.5; margin:9px 0; }
+.decree-slot.filled strong { color:#193c67; }.decree-slot.filled small { color:#236458; }
+.shop-title { margin:34px 0 8px; border-top:1px solid #c5d1e1; padding-top:28px; scroll-margin-top:60px; }
+.shop-title>span { font-size:10px; letter-spacing:2px; color:#596f8c; font-weight:800; }.shop-title h2 { font-size:32px; margin:9px 0; padding:0; font-weight:800; }
+[class*="st-key-card_"] { background:#fff; border:1px solid #bacbe0!important; border-bottom:4px solid #bacbe0!important; border-radius:16px!important; transition:transform .18s ease,border-color .18s ease; }
+[class*="st-key-card_"]:hover { transform:translateY(-2px); border-color:#688eca!important; }
+[class*="st-key-card_"]:has(.selected-head) { background:#f0faf7; border-color:#4c9a88!important; }
+.action-head { font-size:10px; color:#536c8c; gap:10px; margin-bottom:12px; }.action-head b { background:#eaf0fa; color:#345378; font-size:9px; }
+.decree-icon { font-size:29px; }.coin-price { margin-left:auto; white-space:nowrap; color:#77530c; background:#fff0c8; padding:7px 9px; border:1px solid #efd384; border-radius:9px; font-size:17px; font-weight:800; }
+.action-name { font-size:19px; color:#203956; min-height:53px; font-weight:800; }.action-desc { color:#566c86; font-size:11px; min-height:28px; }
+.effect-row { min-height:68px; align-content:start; }.effect { font-size:11px; padding:4px 7px; color:#245f50; background:#e8f4ec; border-color:#cbe4d6; border-radius:6px; }.effect.negative { color:#a13831; background:#fcece8; border-color:#edc6bc; }
+.city-scope { color:#3b5b82; background:#edf3fd; font-size:12px; height:auto; min-height:65px; border-color:#d3dff1; margin:4px 0; }
+.st-key-decree_shop [data-testid="stExpander"] { background:#f5f8fc; font-size:12px; }
+.st-key-decree_shop [data-testid="stCaptionContainer"] { font-size:11px; }
+.footer { color:#526782; border-color:#bac9dc; }
+.insight strong,.provider strong { color:#284465; }.insight p { color:#536781; }
+.st-key-simulate { margin-bottom:5px; }
+@media(max-width:1000px) {
+ .block-container { padding:1.5rem 1.2rem 2rem; }.hud-tile { padding:16px 14px; }.hud-label { font-size:9px; }
+ .action-name { font-size:17px; }.decree-slot strong { font-size:11px; }
+}
+@media(max-width:760px) {
+ .game-hud { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }.hud-tile strong { font-size:35px; }
+ .st-key-decree_shop [data-testid="stHorizontalBlock"],.st-key-district_cards [data-testid="stHorizontalBlock"],.st-key-decree_slots [data-testid="stHorizontalBlock"] { flex-wrap:wrap; }
+ .st-key-decree_shop [data-testid="stColumn"] { flex:1 1 100%!important; width:100%!important; }
+ .st-key-district_cards [data-testid="stColumn"],.st-key-decree_slots [data-testid="stColumn"] { flex:1 1 43%!important; width:43%!important; min-width:0; }
+ .game-emblem { width:53px; height:59px; font-size:28px; border-radius:15px; flex-shrink:0; }
+ .game-brand small { font-size:8px; }.game-brand p { font-size:11px; }.action-name,.effect-row { min-height:0; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
